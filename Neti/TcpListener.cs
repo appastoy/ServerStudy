@@ -6,17 +6,17 @@ namespace Neti
 {
     public class TcpListener : IDisposable
     {
-        Action<Socket> _onClientEntered;
+        Action<TcpClient> _clientEntered;
         SocketAsyncEventArgs _acceptAsyncEventArgs;
 
         public IPEndPoint LocalEndPoint { get; }
         public Socket Socket { get; private set; }
         public bool IsActive => Socket != null;
 
-        public event Action<Socket> OnClientEntered
+        public event Action<TcpClient> OnClientEntered
         {
-            add => _onClientEntered += value;
-            remove => _onClientEntered -= value;
+            add => _clientEntered += value;
+            remove => _clientEntered -= value;
         }
 
         public TcpListener()
@@ -62,7 +62,7 @@ namespace Neti
             try
             {
                 EnsureAcceptEventArgs();
-                CreateSocket();
+                EnsureSocket();
                 Socket.Bind(LocalEndPoint);
                 Socket.Listen((int)SocketOptionName.MaxConnections);
 
@@ -73,48 +73,6 @@ namespace Neti
                 Socket?.Close();
                 Socket = null;
                 throw;
-            }
-        }
-
-        void EnsureAcceptEventArgs()
-        {
-            if (_acceptAsyncEventArgs == null)
-            {
-                _acceptAsyncEventArgs = new SocketAsyncEventArgs();
-                _acceptAsyncEventArgs.Completed += OnAccept;
-            }
-        }
-
-        void CreateSocket()
-        {
-            Socket = new Socket(LocalEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
-            {
-                ExclusiveAddressUse = false
-            };
-            Socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-        }
-
-        void AcceptAsync()
-        {
-            if (Socket.AcceptAsync(_acceptAsyncEventArgs) == false)
-            {
-                OnAccept(this, _acceptAsyncEventArgs);
-            }
-        }
-
-        void OnAccept(object _, SocketAsyncEventArgs e)
-        {
-            if (e.SocketError == SocketError.Success)
-            {
-                var acceptSocket = e.AcceptSocket;
-                e.AcceptSocket = null;
-                _onClientEntered?.Invoke(acceptSocket);
-
-                AcceptAsync();
-            }
-            else
-            {
-                Stop();
             }
         }
 
@@ -133,9 +91,54 @@ namespace Neti
             GC.SuppressFinalize(this);
         }
 
+        void EnsureAcceptEventArgs()
+        {
+            if (_acceptAsyncEventArgs == null)
+            {
+                _acceptAsyncEventArgs = new SocketAsyncEventArgs();
+                _acceptAsyncEventArgs.Completed += OnAccept;
+            }
+        }
+
+        void EnsureSocket()
+        {
+            if (Socket == null)
+            {
+                Socket = new Socket(LocalEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
+                {
+                    ExclusiveAddressUse = false
+                };
+                Socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            }
+        }
+
+        void AcceptAsync()
+        {
+            if (Socket.AcceptAsync(_acceptAsyncEventArgs) == false)
+            {
+                OnAccept(this, _acceptAsyncEventArgs);
+            }
+        }
+
+        void OnAccept(object _, SocketAsyncEventArgs e)
+        {
+            if (e.SocketError == SocketError.Success)
+            {
+                var newClient = new TcpClient(e.AcceptSocket);
+                e.AcceptSocket = null;
+                _clientEntered?.Invoke(newClient);
+
+                AcceptAsync();
+            }
+            else
+            {
+                Stop();
+            }
+        }
+
         protected virtual void Dispose(bool _)
         {
-            _onClientEntered = null;
+            _clientEntered = null;
 
             Stop();
 

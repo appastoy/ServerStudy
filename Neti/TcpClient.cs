@@ -1,25 +1,43 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 
 namespace Neti
 {
 	public class TcpClient : IDisposable
 	{
 		IPEndPoint _remoteEndPoint;
-        Action<bool> _onConnectionChanged;
-        SocketAsyncEventArgs _connectAsyncEventArgs;
+        Action _connected;
+		Action _disconnected;
+		Action<IReadableBuffer > _bytesReceived;
+		SocketAsyncEventArgs _connectAsyncEventArgs;
+		SocketAsyncEventArgs _disconnectAsyncEventArgs;
 		SocketAsyncEventArgs _recvAsyncEventArgs;
+		bool _disconnectRequired;
 
 		public Socket Socket { get; private set; }
 		public IPAddress Address => _remoteEndPoint.Address;
 		public int Port => _remoteEndPoint.Port;
-        public bool IsConnected => Socket != null && Socket.Connected;
+		public bool IsConnected { get; private set; }
+		public bool IsDisposed => Socket == null;
 
-		public event Action<bool> ConnectionChanged
+		public event Action Connected
 		{
-			add => _onConnectionChanged += value;
-			remove => _onConnectionChanged -= value;
+			add => _connected += value;
+			remove => _connected -= value;
+		}
+
+		public event Action Disconnected
+		{
+			add => _disconnected += value;
+			remove => _disconnected -= value;
+		}
+
+		public event Action<IReadableBuffer> BytesReceived
+		{
+			add => _bytesReceived += value;
+			remove => _bytesReceived -= value;
 		}
 
 		public TcpClient(string ip, int port)
@@ -63,19 +81,6 @@ namespace Neti
 			EnsureSocket();
 		}
 
-		void EnsureSocket()
-		{
-			if (Socket == null)
-			{
-				Socket = new Socket(_remoteEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
-				{
-					ExclusiveAddressUse = false,
-					NoDelay = true
-				};
-				Socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-			}
-		}
-
 		public TcpClient(Socket socket)
 		{
 			if (socket == null)
@@ -90,42 +95,95 @@ namespace Neti
 
 			Socket = socket;
 			_remoteEndPoint = Socket.RemoteEndPoint as IPEndPoint;
+			IsConnected = true;
+			BeginRecevie();
 		}
 
 		public void Connect()
 		{
-			if (IsConnected)
-			{
-				throw new InvalidOperationException("Already connected.");
-			}
+			CheckDisposed();
+			CheckConnected();
 
 			Socket.Connect(_remoteEndPoint);
-			_onConnectionChanged?.Invoke(true);
+			IsConnected = true;
+			_connected?.Invoke();
+			BeginRecevie();
 		}
 
 		public void ConnectAsync()
 		{
-			if (IsConnected)
+			CheckDisposed();
+			CheckConnected();
+
+			if (_connectAsyncEventArgs == null)
 			{
-				throw new InvalidOperationException("Already connected.");
+				_connectAsyncEventArgs = new SocketAsyncEventArgs { RemoteEndPoint = _remoteEndPoint };
+				_connectAsyncEventArgs.Completed += OnConnect;
 			}
 
-			EnsureConnectAsyncEventArgs();
 			if (Socket.ConnectAsync(_connectAsyncEventArgs) == false)
 			{
 				OnConnect(this, _connectAsyncEventArgs);
 			}
 		}
 
-		void EnsureConnectAsyncEventArgs()
+		public void Disconnect()
 		{
-			if (_connectAsyncEventArgs == null)
+			Disconnect(true);
+		}
+
+		public void DisconnectAsync()
+		{
+			DisconnectAsync(true);
+		}
+
+		public void DisconnectAndClose()
+		{
+			Disconnect(false);
+		}
+
+		public void DisconnectAndCloseAsync()
+		{
+			DisconnectAsync(false);
+		}
+
+		public void Close()
+		{
+			Dispose(true);
+		}
+
+		public void Dispose()
+		{
+			Dispose(true);
+			GC.SuppressFinalize(this);
+		}
+
+		void EnsureSocket()
+		{
+			if (Socket == null)
 			{
-				_connectAsyncEventArgs = new SocketAsyncEventArgs
+				Socket = new Socket(_remoteEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
 				{
-					RemoteEndPoint = _remoteEndPoint
+					ExclusiveAddressUse = false,
+					NoDelay = true
 				};
-				_connectAsyncEventArgs.Completed += OnConnect;
+				Socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+			}
+		}
+
+		void CheckDisposed()
+		{
+			if (IsDisposed)
+			{
+				throw new ObjectDisposedException(nameof(TcpClient));
+			}
+		}
+
+		void CheckConnected()
+		{
+			if (IsConnected)
+			{
+				throw new InvalidOperationException("Already connected.");
 			}
 		}
 
@@ -133,12 +191,9 @@ namespace Neti
 		{
 			if (e.SocketError == SocketError.Success)
 			{
-				_onConnectionChanged?.Invoke(true);
+				IsConnected = true;
+				_connected?.Invoke();
 				BeginRecevie();
-			}
-			else
-			{
-				Disconnect();
 			}
 		}
 
@@ -148,48 +203,134 @@ namespace Neti
 			{
 				_recvAsyncEventArgs = new SocketAsyncEventArgs();
 				_recvAsyncEventArgs.Completed += OnReceive;
-			}
 
-			// TODO: Set Buffer.
+				// TODO: Optimize buffer.
+				var buffer = new StreamBuffer();
+				_recvAsyncEventArgs.UserToken = buffer;
+				_recvAsyncEventArgs.SetBuffer(buffer.Buffer, 0, buffer.WritableSize);
+			}
 
 			ReceiveAsync();
 		}
 
 		void ReceiveAsync()
 		{
-
-		}
-
-
-		void OnReceive(object _, SocketAsyncEventArgs e)
-		{
-			
-		}
-
-		public void Disconnect()
-		{
-			if (IsConnected)
+			if (Socket.ReceiveAsync(_recvAsyncEventArgs) == false)
 			{
-				Socket.Shutdown(SocketShutdown.Both);
-				Socket.Disconnect(true);
-				_onConnectionChanged?.Invoke(false);
+				OnReceive(this, _recvAsyncEventArgs);
 			}
 		}
 
-        public void Dispose()
+		void OnReceive(object _, SocketAsyncEventArgs e)
 		{
-			Dispose(true);
-			GC.SuppressFinalize(this);
+			if (e.SocketError == SocketError.Success)
+			{
+				if (e.BytesTransferred > 0)
+				{
+					if (_bytesReceived != null)
+					{
+						var streamBuffer = (StreamBuffer)e.UserToken;
+						streamBuffer.ExternalWrite(e.BytesTransferred);
+
+						_bytesReceived.Invoke(streamBuffer);
+						_recvAsyncEventArgs.SetBuffer(streamBuffer.Buffer, 
+													  streamBuffer.WritePosition,
+													  streamBuffer.WritableSize);
+					}
+					else
+					{
+						e.SetBuffer(0, e.Buffer.Length);
+					}
+
+					ReceiveAsync();
+				}
+				else if (_disconnectRequired)
+				{
+					_disconnectRequired = false;
+				}
+				else
+				{
+					Close();
+				}
+			}
+			else
+			{
+				Close();
+			}
+		}
+
+		void Disconnect(bool reuseSocket)
+		{
+			if (IsConnected)
+			{
+				_disconnectRequired = true;
+				Socket.Shutdown(SocketShutdown.Both);
+				Socket.Disconnect(reuseSocket);
+				if (reuseSocket)
+				{
+					IsConnected = false;
+					_disconnected?.Invoke();
+				}
+				else
+				{
+					Close();
+				}
+			}
+		}
+
+		void DisconnectAsync(bool reuseSocket)
+		{
+			if (IsConnected)
+			{
+				if (_disconnectAsyncEventArgs == null)
+				{
+					_disconnectAsyncEventArgs = new SocketAsyncEventArgs();
+					_disconnectAsyncEventArgs.Completed += OnDisconnect;
+				}
+				_disconnectAsyncEventArgs.DisconnectReuseSocket = reuseSocket;
+
+				_disconnectRequired = true;
+				Socket.Shutdown(SocketShutdown.Both);
+				Socket.DisconnectAsync(_disconnectAsyncEventArgs);
+			}
+		}
+
+		void OnDisconnect(object _, SocketAsyncEventArgs e)
+		{
+			if (e.SocketError == SocketError.Success)
+			{
+				if (e.DisconnectReuseSocket)
+				{
+					IsConnected = false;
+					_disconnected?.Invoke();
+				}
+				else
+				{
+					Close();
+				}
+			}
 		}
 
 		protected virtual void Dispose(bool disposing)
 		{
-			Socket?.Close();
-			Socket = null;
-			_connectAsyncEventArgs?.Dispose();
-			_connectAsyncEventArgs = null;
-			_onConnectionChanged?.Invoke(false);
-			_onConnectionChanged = null;
+			if (IsDisposed == false)
+			{
+				if (IsConnected)
+				{
+					IsConnected = false;
+					_disconnected?.Invoke();
+				}
+				Socket?.Close();
+				Socket = null;
+				_recvAsyncEventArgs?.Dispose();
+				_recvAsyncEventArgs = null;
+				_connectAsyncEventArgs?.Dispose();
+				_connectAsyncEventArgs = null;
+				_disconnectAsyncEventArgs?.Dispose();
+				_disconnectAsyncEventArgs = null;
+				_disconnectRequired = false;
+				_connected = null;
+			}
 		}
 
 		~TcpClient()

@@ -42,7 +42,7 @@ namespace Neti.Tests
             using (var client = new TcpClient(IPAddress.Loopback, testPort))
             {
                 var connectCheck = false;
-                client.ConnectionChanged += isConnected => connectCheck = isConnected;
+                client.Connected += () => connectCheck = true;
                 connectCheck.Should().BeFalse();
                 client.IsConnected.Should().BeFalse();
 
@@ -60,15 +60,13 @@ namespace Neti.Tests
             using (var client = new TcpClient(IPAddress.Loopback, testPort))
             {
                 var connectCheck = false;
-                var connectionChanged = false;
-                client.ConnectionChanged += isConnected => connectCheck = isConnected;
-                client.ConnectionChanged += _ => connectionChanged = true;
+                client.Connected += () => connectCheck = true;
                 connectCheck.Should().BeFalse();
                 client.IsConnected.Should().BeFalse();
 
                 client.ConnectAsync();
 
-                Task.Run(() => { while (connectionChanged == false) Thread.Yield(); }).Wait();
+                Task.Run(() => { while (connectCheck == false) Thread.Yield(); }).Wait();
                 connectCheck.Should().BeTrue();
                 client.IsConnected.Should().BeTrue();
                 new Action(() => client.Connect()).Should().Throw<InvalidOperationException>();
@@ -80,43 +78,109 @@ namespace Neti.Tests
         {
             using (var client = new TcpClient(IPAddress.Loopback, testPort))
             {
-                var connectCheck = false;
-                client.ConnectionChanged += isConnected => connectCheck = isConnected;
-                var disconnectAction = new Action(() => client.Disconnect());
-
-                client.IsConnected.Should().BeFalse();
-                disconnectAction.Should().NotThrow();
+                var disconnectCheck = false;
+                client.Disconnected += () => disconnectCheck = true;
 
                 client.Connect();
-
-                client.IsConnected.Should().BeTrue();
-                connectCheck.Should().BeTrue();
-
                 client.Disconnect();
 
-                connectCheck.Should().BeFalse();
+                disconnectCheck.Should().BeTrue();
                 client.IsConnected.Should().BeFalse();
-                disconnectAction.Should().NotThrow();
+                client.IsDisposed.Should().BeFalse();
+                new Action(() => client.Disconnect()).Should().NotThrow();
+            }
+        }
+
+        [Test]
+        public void DisconnectAndClose()
+        {
+            using (var client = new TcpClient(IPAddress.Loopback, testPort))
+            {
+                var disconnectCheck = false;
+                client.Disconnected += () => disconnectCheck = true;
+
+                client.Connect();
+                client.DisconnectAndClose();
+
+                disconnectCheck.Should().BeTrue();
+                client.IsConnected.Should().BeFalse();
+                client.IsDisposed.Should().BeTrue();
+                new Action(() => client.DisconnectAndClose()).Should().NotThrow();
+            }
+        }
+
+        [Test]
+        public void DisconnectAync()
+        {
+            using (var client = new TcpClient(IPAddress.Loopback, testPort))
+            {
+                var disconnectCheck = false;
+                client.Disconnected += () => disconnectCheck = true;
+
+                client.Connect();
+                client.DisconnectAsync();
+
+                Task.Run(() => { while (disconnectCheck == false) Thread.Yield(); }).Wait();
+                disconnectCheck.Should().BeTrue();
+                client.IsConnected.Should().BeFalse();
+                client.IsDisposed.Should().BeFalse();
+                new Action(() => client.DisconnectAsync()).Should().NotThrow();
+            }
+        }
+
+        [Test]
+        public void DisconnectAndCloseAync()
+        {
+            using (var client = new TcpClient(IPAddress.Loopback, testPort))
+            {
+                var disconnectCheck = false;
+                client.Disconnected += () => disconnectCheck = true;
+                
+                client.Connect();
+                client.DisconnectAndCloseAsync();
+
+                Task.Run(() => { while (disconnectCheck == false) Thread.Yield(); }).Wait();
+                disconnectCheck.Should().BeTrue();
+                client.IsConnected.Should().BeFalse();
+                client.IsDisposed.Should().BeTrue();
+                new Action(() => client.DisconnectAndCloseAsync()).Should().NotThrow();
+            }
+        }
+
+        [Test]
+        public void Close()
+        {
+            using (var client = new TcpClient(IPAddress.Loopback, testPort))
+            {
+                var disconnectCheck = false;
+                client.Disconnected += () => disconnectCheck = true;
+
+                client.Connect();
+                client.Close();
+
+                disconnectCheck.Should().BeTrue();
+                client.IsConnected.Should().BeFalse();
+                client.IsDisposed.Should().BeTrue();
+                new Action(() => client.Close()).Should().NotThrow();
             }
         }
 
         [Test]
         public void Dispose()
         {
-            var connectCheck = false;
-            var client = new TcpClient(IPAddress.Loopback, testPort);
-            client.ConnectionChanged += isConnected => connectCheck = isConnected;
-            var disconnectAction = new Action(() => client.Disconnect());
+            using (var client = new TcpClient(IPAddress.Loopback, testPort))
+            {
+                var disconnectCheck = false;
+                client.Disconnected += () => disconnectCheck = true;
 
-            client.Connect();
+                client.Connect();
+                client.Dispose();
 
-            connectCheck.Should().BeTrue();
-
-            client.Dispose();
-
-            connectCheck.Should().BeFalse();
-            client.IsConnected.Should().BeFalse();
-            disconnectAction.Should().NotThrow();
+                disconnectCheck.Should().BeTrue();
+                client.IsConnected.Should().BeFalse();
+                client.IsDisposed.Should().BeTrue();
+                new Action(() => client.Dispose()).Should().NotThrow();
+            }
         }
     }
 }
