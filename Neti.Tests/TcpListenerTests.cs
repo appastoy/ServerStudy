@@ -18,6 +18,7 @@ namespace Neti.Tests
         public void TearDown()
         {
             _listener.Dispose();
+            _listener = null;
         }
 
         [Test]

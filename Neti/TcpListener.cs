@@ -13,21 +13,15 @@ namespace Neti
         public Socket Socket { get; private set; }
         public bool IsActive => Socket != null;
 
-        public event Action<TcpClient> OnClientEntered
+        public event Action<TcpClient> NewClientEntered
         {
             add => _clientEntered += value;
             remove => _clientEntered -= value;
         }
 
-        public TcpListener()
+        public TcpListener() : this(IPAddress.Any, 0)
         {
-            var availablePort = PortUtility.FindAvailableTcpPort();
-            if (availablePort.HasValue == false)
-            {
-                throw new InvalidOperationException("There is no available port.");
-            }
-
-            LocalEndPoint = new IPEndPoint(IPAddress.Any, availablePort.Value);
+            
         }
 
         public TcpListener(int port) : this(IPAddress.Any, port)
@@ -37,7 +31,7 @@ namespace Neti
 
         public TcpListener(string ip, int port)
         {
-            PortUtility.ValidatePort(port);
+            Validator.ValidatePort(port);
             if (IPAddress.TryParse(ip, out var ipAddress) == false)
             {
                 throw new ArgumentException("Invalid ip");
@@ -48,7 +42,7 @@ namespace Neti
 
         public TcpListener(IPAddress ip, int port)
         {
-            PortUtility.ValidatePort(port);
+            Validator.ValidatePort(port);
             LocalEndPoint = new IPEndPoint(ip, port);
         }
 

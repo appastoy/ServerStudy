@@ -2,6 +2,8 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using Neti.Buffer;
+using Neti.Pool;
 
 namespace Neti
 {
@@ -10,7 +12,7 @@ namespace Neti
 		IPEndPoint _remoteEndPoint;
         Action _connected;
 		Action _disconnected;
-		Action<IReadableBuffer > _bytesReceived;
+		Action<IStreamBufferReader> _bytesReceived;
 		SocketAsyncEventArgs _connectAsyncEventArgs;
 		SocketAsyncEventArgs _disconnectAsyncEventArgs;
 		SocketAsyncEventArgs _recvAsyncEventArgs;
@@ -34,7 +36,7 @@ namespace Neti
 			remove => _disconnected -= value;
 		}
 
-		public event Action<IReadableBuffer> BytesReceived
+		public event Action<IStreamBufferReader> BytesReceived
 		{
 			add => _bytesReceived += value;
 			remove => _bytesReceived -= value;
@@ -52,7 +54,7 @@ namespace Neti
 				throw new ArgumentException("Invalid ip.");
 			}
 
-			PortUtility.ValidatePort(port);
+			Validator.ValidatePort(port);
 			_remoteEndPoint = new IPEndPoint(ipAddress, port);
 			EnsureSocket();
 		}
@@ -64,7 +66,7 @@ namespace Neti
 				throw new ArgumentNullException(nameof(ip));
 			}
 
-			PortUtility.ValidatePort(port);
+			Validator.ValidatePort(port);
 			_remoteEndPoint = new IPEndPoint(ip, port);
 			EnsureSocket();
 		}
@@ -76,7 +78,7 @@ namespace Neti
 				throw new ArgumentNullException(nameof(remoteEndPoint));
 			}
 
-			PortUtility.ValidatePort(remoteEndPoint.Port);
+			Validator.ValidatePort(remoteEndPoint.Port);
 			_remoteEndPoint = remoteEndPoint;
 			EnsureSocket();
 		}
@@ -124,6 +126,37 @@ namespace Neti
 			if (Socket.ConnectAsync(_connectAsyncEventArgs) == false)
 			{
 				OnConnect(this, _connectAsyncEventArgs);
+			}
+		}
+
+		public void Send(byte[] bytes)
+		{
+			Send(bytes, 0, bytes is null ? 0 : bytes.Length);
+		}
+
+		public void Send(byte[] bytes, int offset, int count)
+		{
+			Validator.ValidateBytes(bytes, offset, count);
+
+			Socket.Send(bytes, offset, count, SocketFlags.None, out var errorCode);
+		}
+
+		public void SendAsync(byte[] bytes)
+		{
+			SendAsync(bytes, 0, bytes != null ? bytes.Length : 0);
+		}
+
+		public void SendAsync(byte[] bytes, int offset, int count)
+		{
+			Validator.ValidateBytes(bytes, offset, count);
+
+			// TODO: EventArgs Pool 구현하기
+			var sendAsyncEventArgs = SendAsyncEventArgsPool.Instance.Alloc();
+			sendAsyncEventArgs.SetBuffer(bytes, offset, count);
+			
+			if (Socket.SendAsync(sendAsyncEventArgs) == false)
+			{
+				SendAsyncEventArgsPool.Instance.Free(sendAsyncEventArgs);
 			}
 		}
 
