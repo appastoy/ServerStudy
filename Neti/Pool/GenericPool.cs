@@ -6,23 +6,23 @@ namespace Neti.Pool
 {
 	class GenericPool<T>
 	{
-		readonly ConcurrentStack<T> freeStack = new ConcurrentStack<T>();
+		readonly ConcurrentStack<T> _freeStack = new ConcurrentStack<T>();
 
-		volatile int allocCount = 0;
+		volatile int _allocCount = 0;
 		
-		public int AllocCount => allocCount;
-		public int FreeCount => freeStack.Count;
+		public int AllocCount => _allocCount;
+		public int FreeCount => _freeStack.Count;
 
 		public T Alloc()
 		{
-			Interlocked.Increment(ref allocCount);
-			return freeStack.TryPop(out var item) ? item : OnAllocate();
+			Interlocked.Increment(ref _allocCount);
+			return _freeStack.TryPop(out var item) ? item : OnAllocate();
 		}
 
 		public void Free(T item)
 		{
-			Interlocked.Decrement(ref allocCount);
-			freeStack.Push(item);
+			Interlocked.Decrement(ref _allocCount);
+			_freeStack.Push(item);
 		}
 
 		protected virtual T OnAllocate()

@@ -1,19 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Neti.Buffer
+﻿namespace Neti.Buffer
 {
-	public interface IStreamBufferReader
+	public interface IStreamBufferReader : IStreamBuffer
 	{
-		byte[] Buffer { get; }
-		int Capacity { get; }
 		int ReadableSize { get; } 
 		int ReadPosition { get; }
 
-		ushort ReadUInt16();
-		ushort PeekUInt16();
+		T Read<T>() where T : unmanaged;
+		T Peek<T>() where T : unmanaged;
 		void ExternalRead(int byteSize);
-
 	}
 }

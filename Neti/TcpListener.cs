@@ -46,7 +46,7 @@ namespace Neti
             LocalEndPoint = new IPEndPoint(ip, port);
         }
 
-        public void Start()
+        public virtual void Start()
         {
             if (IsActive)
             {
@@ -70,7 +70,7 @@ namespace Neti
             }
         }
 
-        public void Stop()
+        public virtual void Stop()
         {
             if (IsActive)
             {
@@ -120,6 +120,7 @@ namespace Neti
             {
                 var newClient = new TcpClient(e.AcceptSocket);
                 e.AcceptSocket = null;
+                OnClientEntered(newClient);
                 _clientEntered?.Invoke(newClient);
 
                 AcceptAsync();
@@ -128,6 +129,11 @@ namespace Neti
             {
                 Stop();
             }
+        }
+
+        protected virtual void OnClientEntered(TcpClient newClient)
+        {
+
         }
 
         protected virtual void Dispose(bool _)

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading;
 using Neti.Buffer;
 using Neti.Pool;
 
@@ -9,7 +8,8 @@ namespace Neti
 {
 	public class TcpClient : IDisposable
 	{
-		IPEndPoint _remoteEndPoint;
+		readonly IPEndPoint _remoteEndPoint;
+
         Action _connected;
 		Action _disconnected;
 		Action<IStreamBufferReader> _bytesReceived;
@@ -138,7 +138,7 @@ namespace Neti
 		{
 			Validator.ValidateBytes(bytes, offset, count);
 
-			Socket.Send(bytes, offset, count, SocketFlags.None, out var errorCode);
+			Socket.Send(bytes, offset, count, SocketFlags.None);
 		}
 
 		public void SendAsync(byte[] bytes)
@@ -150,7 +150,6 @@ namespace Neti
 		{
 			Validator.ValidateBytes(bytes, offset, count);
 
-			// TODO: EventArgs Pool 구현하기
 			var sendAsyncEventArgs = SendAsyncEventArgsPool.Instance.Alloc();
 			sendAsyncEventArgs.SetBuffer(bytes, offset, count);
 			
@@ -182,7 +181,7 @@ namespace Neti
 
 		public void Close()
 		{
-			Dispose(true);
+			Dispose();
 		}
 
 		public void Dispose()
@@ -225,9 +224,15 @@ namespace Neti
 			if (e.SocketError == SocketError.Success)
 			{
 				IsConnected = true;
+				OnConnected();
 				_connected?.Invoke();
 				BeginRecevie();
 			}
+		}
+
+		protected virtual void OnConnected()
+		{
+
 		}
 
 		void BeginRecevie()
@@ -248,7 +253,9 @@ namespace Neti
 
 		void ReceiveAsync()
 		{
-			if (Socket.ReceiveAsync(_recvAsyncEventArgs) == false)
+			if (Socket != null &&
+				Socket.Connected &&
+				Socket.ReceiveAsync(_recvAsyncEventArgs) == false)
 			{
 				OnReceive(this, _recvAsyncEventArgs);
 			}
@@ -260,14 +267,14 @@ namespace Neti
 			{
 				if (e.BytesTransferred > 0)
 				{
+					var streamBuffer = (StreamBuffer)e.UserToken;
+					streamBuffer.ExternalWrite(e.BytesTransferred);
+					OnBytesReceived(streamBuffer);
+					
 					if (_bytesReceived != null)
 					{
-						var streamBuffer = (StreamBuffer)e.UserToken;
-						streamBuffer.ExternalWrite(e.BytesTransferred);
-
 						_bytesReceived.Invoke(streamBuffer);
-						_recvAsyncEventArgs.SetBuffer(streamBuffer.Buffer, 
-													  streamBuffer.WritePosition,
+						_recvAsyncEventArgs.SetBuffer(streamBuffer.WritePosition,
 													  streamBuffer.WritableSize);
 					}
 					else
@@ -290,6 +297,11 @@ namespace Neti
 			{
 				Close();
 			}
+		}
+
+		protected virtual void OnBytesReceived(IStreamBufferReader reader)
+		{
+
 		}
 
 		void Disconnect(bool reuseSocket)
@@ -335,6 +347,7 @@ namespace Neti
 				if (e.DisconnectReuseSocket)
 				{
 					IsConnected = false;
+					OnDisconnected();
 					_disconnected?.Invoke();
 				}
 				else
@@ -344,6 +357,11 @@ namespace Neti
 			}
 		}
 
+		protected virtual void OnDisconnected()
+		{
+
+		}
+
 		protected virtual void Dispose(bool disposing)
 		{
 			if (IsDisposed == false)
@@ -351,6 +369,7 @@ namespace Neti
 				if (IsConnected)
 				{
 					IsConnected = false;
+					OnDisconnected();
 					_disconnected?.Invoke();
 				}
 				Socket?.Close();
