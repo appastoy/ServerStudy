@@ -34,5 +34,20 @@ namespace Neti
                 throw new ArgumentOutOfRangeException(nameof(port), port, $"Invalid port. port must be over 0 and under {IPEndPoint.MaxPort}.");
             }
         }
+
+        public static IPAddress ValidateAndParseIp(string ip)
+        {
+            if (ip is null)
+            {
+                throw new ArgumentNullException(nameof(ip));
+            }
+
+            if (IPAddress.TryParse(ip, out var ipAddress))
+            {
+                throw new ArgumentException("Invalid ip.");
+            }
+
+            return ipAddress;
+        }
     }
 }

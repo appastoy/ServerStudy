@@ -6,68 +6,96 @@ namespace Neti
 {
     public class TcpListener : IDisposable
     {
-        Action<TcpClient> _clientEntered;
+        Action _started;
+        Action _stopped;
+        Action<Socket> _clientEntered;
         SocketAsyncEventArgs _acceptAsyncEventArgs;
 
-        public IPEndPoint LocalEndPoint { get; }
+        public IPEndPoint LocalEndPoint { get; private set; }
         public Socket Socket { get; private set; }
         public bool IsActive => Socket != null;
 
-        public event Action<TcpClient> NewClientEntered
+        public event Action<Socket> NewClientEntered
         {
             add => _clientEntered += value;
             remove => _clientEntered -= value;
         }
 
-        public TcpListener() : this(IPAddress.Any, 0)
+        public event Action Started
         {
-            
+            add => _started += value;
+            remove => _started -= value;
         }
 
-        public TcpListener(int port) : this(IPAddress.Any, port)
+        public event Action Stopped
         {
-            
+            add => _stopped += value;
+            remove => _stopped -= value;
         }
 
-        public TcpListener(string ip, int port)
+        public void Start() => Start(new IPEndPoint(IPAddress.Any, 0));
+
+        public void Start(int port) => Start(new IPEndPoint(IPAddress.Any, port));
+
+        public void Start(string ip, int port)
         {
-            Validator.ValidatePort(port);
             if (IPAddress.TryParse(ip, out var ipAddress) == false)
             {
                 throw new ArgumentException("Invalid ip");
             }
 
-            LocalEndPoint = new IPEndPoint(ipAddress, port);
+            Start(new IPEndPoint(ipAddress, port));
         }
 
-        public TcpListener(IPAddress ip, int port)
+        public void Start(IPAddress ip, int port)
         {
-            Validator.ValidatePort(port);
-            LocalEndPoint = new IPEndPoint(ip, port);
+            if (ip is null)
+            {
+                throw new ArgumentNullException(nameof(ip));
+            }
+
+            Start(new IPEndPoint(ip, port));
         }
 
-        public virtual void Start()
+        public virtual void Start(IPEndPoint localEndPoint)
         {
             if (IsActive)
             {
                 throw new InvalidOperationException("Already started.");
             }
 
+            if (localEndPoint is null)
+            {
+                throw new ArgumentNullException(nameof(localEndPoint));
+            }
+
+            Validator.ValidatePort(localEndPoint.Port);
+
             try
             {
+                LocalEndPoint = localEndPoint;
+
                 EnsureAcceptEventArgs();
                 EnsureSocket();
-                Socket.Bind(LocalEndPoint);
+                Socket.Bind(localEndPoint);
                 Socket.Listen((int)SocketOptionName.MaxConnections);
 
                 AcceptAsync();
+
+                OnStarted();
+                _started?.Invoke();
             }
-            catch(Exception)
+            catch (Exception)
             {
                 Socket?.Close();
                 Socket = null;
                 throw;
             }
+        }
+
+        protected virtual void OnStarted() 
+        {
+
         }
 
         public virtual void Stop()
@@ -76,7 +104,14 @@ namespace Neti
             {
                 Socket.Close();
                 Socket = null;
+                OnStopped();
+                _stopped?.Invoke();
             }
+        }
+
+        protected virtual void OnStopped()
+        {
+
         }
 
         public void Dispose()
@@ -118,10 +153,10 @@ namespace Neti
         {
             if (e.SocketError == SocketError.Success)
             {
-                var newClient = new TcpClient(e.AcceptSocket);
+                var newClientSocket = e.AcceptSocket;
                 e.AcceptSocket = null;
-                OnClientEntered(newClient);
-                _clientEntered?.Invoke(newClient);
+                OnClientEntered(newClientSocket);
+                _clientEntered?.Invoke(newClientSocket);
 
                 AcceptAsync();
             }
@@ -131,7 +166,7 @@ namespace Neti
             }
         }
 
-        protected virtual void OnClientEntered(TcpClient newClient)
+        protected virtual void OnClientEntered(Socket newClientSocket)
         {
 
         }
@@ -139,11 +174,13 @@ namespace Neti
         protected virtual void Dispose(bool _)
         {
             _clientEntered = null;
+            _started = null;
 
             Stop();
 
             _acceptAsyncEventArgs?.Dispose();
             _acceptAsyncEventArgs = null;
+            _stopped = null;
         }
 
         ~TcpListener()

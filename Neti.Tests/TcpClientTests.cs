@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
-using Neti.Buffer;
 using NUnit.Framework;
 
 namespace Neti.Tests
@@ -19,9 +17,9 @@ namespace Neti.Tests
         [SetUp]
         public void Setup()
         {
-            _listener = new TcpListener(_testPort);
-            _listener.NewClientEntered += client => _connectedClient = client;
-            _listener.Start();
+            _listener = new TcpListener();
+            _listener.NewClientEntered += client => _connectedClient = TcpClient.CreateFromSocket(client);
+            _listener.Start(_testPort);
         }
 
         [TearDown]
@@ -37,96 +35,96 @@ namespace Neti.Tests
         [Test]
         public void ConnectToWrongAddress()
         {
-            using (var client = new TcpClient(IPAddress.Any, _testPort))
+            using (var client = new TcpClient())
             {
-                new Action(() => client.Connect()).Should().Throw<Exception>();
+                new Action(() => client.Connect(IPAddress.Any, _testPort)).Should().Throw<Exception>();
             }
         }
 
         [Test]
         public void Connect()
         {
-            using (var client = new TcpClient(IPAddress.Loopback, _testPort))
+            using (var client = new TcpClient())
             {
                 var connectCheck = false;
                 client.Connected += () => connectCheck = true;
                 connectCheck.Should().BeFalse();
                 client.IsConnected.Should().BeFalse();
 
-                client.Connect();
+                client.Connect(IPAddress.Loopback, _testPort);
 
                 connectCheck.Should().BeTrue();
                 client.IsConnected.Should().BeTrue();
-                new Action(() => client.Connect()).Should().Throw<InvalidOperationException>();
+                new Action(() => client.Connect(IPAddress.Loopback, _testPort)).Should().Throw<InvalidOperationException>();
             }
         }
 
         [Test]
         public void ConnectAsync()
         {
-            using (var client = new TcpClient(IPAddress.Loopback, _testPort))
+            using (var client = new TcpClient())
             {
                 var connectCheck = false;
                 client.Connected += () => connectCheck = true;
                 client.IsConnected.Should().BeFalse();
 
-                client.ConnectAsync();
+                client.ConnectAsync(IPAddress.Loopback, _testPort);
 
                 Waiting.Until(() => connectCheck);
                 client.IsConnected.Should().BeTrue();
-                new Action(() => client.Connect()).Should().Throw<InvalidOperationException>();
+                new Action(() => client.Connect(IPAddress.Loopback, _testPort)).Should().Throw<InvalidOperationException>();
             }
         }
 
         [Test]
         public void Send()
         {
-            using (var client = new TcpClient(IPAddress.Loopback, _testPort))
+            using (var client = new TcpClient())
             {
-                IStreamBufferReader streamBufferReader = null;
+                ArraySegment<byte>? bytes = new ArraySegment<byte>();
                 var sendData = new byte[] { 123 };
 
-                client.Connect();
+                client.Connect(IPAddress.Loopback, _testPort);
 
                 Waiting.Until(() => _connectedClient != null);
-                _connectedClient.BytesReceived += buffer => streamBufferReader = buffer; 
+                _connectedClient.BytesReceived += buffer => bytes = buffer; 
 
                 client.Send(sendData);
 
-                Waiting.Until(() => streamBufferReader != null);
-                streamBufferReader.Buffer.Take(1).Should().BeEquivalentTo(sendData);
+                Waiting.Until(() => bytes.HasValue);
+                bytes.Value.Array.Should().BeEquivalentTo(sendData);
             }
         }
 
         [Test]
         public void SendAsync()
         {
-            using (var client = new TcpClient(IPAddress.Loopback, _testPort))
+            using (var client = new TcpClient())
             {
-                IStreamBufferReader streamBufferReader = null;
+                ArraySegment<byte> bytes = null;
                 var sendData = new byte[] { 234 };
 
-                client.Connect();
+                client.Connect(IPAddress.Loopback, _testPort);
 
                 Waiting.Until(() => _connectedClient != null);
-                _connectedClient.BytesReceived += buffer => streamBufferReader = buffer;
+                _connectedClient.BytesReceived += buffer => bytes = buffer;
 
                 client.SendAsync(sendData);
 
-                Waiting.Until(() => streamBufferReader != null);
-                streamBufferReader.Buffer.Take(1).Should().BeEquivalentTo(sendData);
+                Waiting.Until(() => bytes != null);
+                bytes.Array.Should().BeEquivalentTo(sendData);
             }
         }
 
         [Test]
         public void Disconnect()
         {
-            using (var client = new TcpClient(IPAddress.Loopback, _testPort))
+            using (var client = new TcpClient())
             {
                 var disconnectCheck = false;
                 client.Disconnected += () => disconnectCheck = true;
 
-                client.Connect();
+                client.Connect(IPAddress.Loopback, _testPort);
                 client.Disconnect();
 
                 disconnectCheck.Should().BeTrue();
@@ -139,12 +137,12 @@ namespace Neti.Tests
         [Test]
         public void DisconnectAndClose()
         {
-            using (var client = new TcpClient(IPAddress.Loopback, _testPort))
+            using (var client = new TcpClient())
             {
                 var disconnectCheck = false;
                 client.Disconnected += () => disconnectCheck = true;
 
-                client.Connect();
+                client.Connect(IPAddress.Loopback, _testPort);
                 client.DisconnectAndClose();
 
                 disconnectCheck.Should().BeTrue();
@@ -157,12 +155,12 @@ namespace Neti.Tests
         [Test]
         public void DisconnectAync()
         {
-            using (var client = new TcpClient(IPAddress.Loopback, _testPort))
+            using (var client = new TcpClient())
             {
                 var disconnectCheck = false;
                 client.Disconnected += () => disconnectCheck = true;
 
-                client.Connect();
+                client.Connect(IPAddress.Loopback, _testPort);
                 client.DisconnectAsync();
 
                 Waiting.Until(() => disconnectCheck);
@@ -175,12 +173,12 @@ namespace Neti.Tests
         [Test]
         public void DisconnectAndCloseAync()
         {
-            using (var client = new TcpClient(IPAddress.Loopback, _testPort))
+            using (var client = new TcpClient())
             {
                 var disconnectCheck = false;
                 client.Disconnected += () => disconnectCheck = true;
                 
-                client.Connect();
+                client.Connect(IPAddress.Loopback, _testPort);
                 client.DisconnectAndCloseAsync();
 
                 Task.Run(() => { while (disconnectCheck == false) Thread.Yield(); }).Wait();
@@ -194,12 +192,12 @@ namespace Neti.Tests
         [Test]
         public void Close()
         {
-            using (var client = new TcpClient(IPAddress.Loopback, _testPort))
+            using (var client = new TcpClient())
             {
                 var disconnectCheck = false;
                 client.Disconnected += () => disconnectCheck = true;
 
-                client.Connect();
+                client.Connect(IPAddress.Loopback, _testPort);
                 client.Close();
 
                 disconnectCheck.Should().BeTrue();
@@ -212,12 +210,12 @@ namespace Neti.Tests
         [Test]
         public void Dispose()
         {
-            using (var client = new TcpClient(IPAddress.Loopback, _testPort))
+            using (var client = new TcpClient())
             {
                 var disconnectCheck = false;
                 client.Disconnected += () => disconnectCheck = true;
 
-                client.Connect();
+                client.Connect(IPAddress.Loopback, _testPort);
                 client.Dispose();
 
                 disconnectCheck.Should().BeTrue();

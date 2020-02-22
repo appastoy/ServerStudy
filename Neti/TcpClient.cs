@@ -8,19 +8,36 @@ namespace Neti
 {
 	public class TcpClient : IDisposable
 	{
-		readonly IPEndPoint _remoteEndPoint;
+		public static TcpClient CreateFromSocket(Socket socket)
+		{
+			var newClient = new TcpClient();
+			newClient.OnAccepted(socket);
 
-        Action _connected;
+			return newClient;
+		}
+
+		public static T CreateFromSocket<T>(Socket socket) where T : TcpClient, new()
+		{
+			var newClient = new T();
+			newClient.OnAccepted(socket);
+
+			return newClient;
+		}
+
+		Action _connected;
 		Action _disconnected;
-		Action<IStreamBufferReader> _bytesReceived;
+		Action<ArraySegment<byte>> _bytesReceived;
+		Action<ArraySegment<byte>> _bytesSent;
 		SocketAsyncEventArgs _connectAsyncEventArgs;
 		SocketAsyncEventArgs _disconnectAsyncEventArgs;
 		SocketAsyncEventArgs _recvAsyncEventArgs;
 		bool _disconnectRequired;
 
 		public Socket Socket { get; private set; }
-		public IPAddress Address => _remoteEndPoint.Address;
-		public int Port => _remoteEndPoint.Port;
+
+		public IPEndPoint RemoteEndPoint { get; private set; }
+		public IPAddress Address => RemoteEndPoint.Address;
+		public int Port => RemoteEndPoint.Port;
 		public bool IsConnected { get; private set; }
 		public bool IsDisposed => Socket == null;
 
@@ -36,90 +53,89 @@ namespace Neti
 			remove => _disconnected -= value;
 		}
 
-		public event Action<IStreamBufferReader> BytesReceived
+		public event Action<ArraySegment<byte>> BytesReceived
 		{
 			add => _bytesReceived += value;
 			remove => _bytesReceived -= value;
 		}
 
-		public TcpClient(string ip, int port)
+		public event Action<ArraySegment<byte>> BytesSent
+		{
+			add => _bytesSent += value;
+			remove => _bytesSent -= value;
+		}
+
+		public void Connect(string ip, int port)
+		{
+			var ipAddress = Validator.ValidateAndParseIp(ip);
+
+			Connect(new IPEndPoint(ipAddress, port));
+		}
+
+		public void Connect(IPAddress ip, int port)
 		{
 			if (ip is null)
 			{
 				throw new ArgumentNullException(nameof(ip));
 			}
 
-			if (IPAddress.TryParse(ip, out var ipAddress) == false)
-			{
-				throw new ArgumentException("Invalid ip.");
-			}
-
-			Validator.ValidatePort(port);
-			_remoteEndPoint = new IPEndPoint(ipAddress, port);
-			EnsureSocket();
+			Connect(new IPEndPoint(ip, port));
 		}
 
-		public TcpClient(IPAddress ip, int port)
+		public virtual void Connect(IPEndPoint remoteEndPoint)
 		{
-			if (ip is null)
-			{
-				throw new ArgumentNullException(nameof(ip));
-			}
+			CheckDisposed();
+			CheckConnected();
 
-			Validator.ValidatePort(port);
-			_remoteEndPoint = new IPEndPoint(ip, port);
-			EnsureSocket();
-		}
-
-		public TcpClient(IPEndPoint remoteEndPoint)
-		{
 			if (remoteEndPoint is null)
 			{
 				throw new ArgumentNullException(nameof(remoteEndPoint));
 			}
 
 			Validator.ValidatePort(remoteEndPoint.Port);
-			_remoteEndPoint = remoteEndPoint;
 			EnsureSocket();
-		}
-
-		public TcpClient(Socket socket)
-		{
-			if (socket == null)
-			{
-				throw new ArgumentNullException(nameof(socket));
-			}
-
-			if (socket.Connected == false)
-			{
-				throw new ArgumentException("socket is not connected.", nameof(socket));
-			}
-
-			Socket = socket;
-			_remoteEndPoint = Socket.RemoteEndPoint as IPEndPoint;
-			IsConnected = true;
-			BeginRecevie();
-		}
-
-		public void Connect()
-		{
-			CheckDisposed();
-			CheckConnected();
-
-			Socket.Connect(_remoteEndPoint);
+			RemoteEndPoint = remoteEndPoint;
+			
+			Socket.Connect(RemoteEndPoint);
 			IsConnected = true;
 			_connected?.Invoke();
 			BeginRecevie();
 		}
 
-		public void ConnectAsync()
+		public void ConnectAsync(string ip, int port)
+		{
+			var ipAddress = Validator.ValidateAndParseIp(ip);
+
+			ConnectAsync(new IPEndPoint(ipAddress, port));
+		}
+
+		public void ConnectAsync(IPAddress ip, int port)
+		{
+			if (ip is null)
+			{
+				throw new ArgumentNullException(nameof(ip));
+			}
+
+			ConnectAsync(new IPEndPoint(ip, port));
+		}
+
+		public virtual void ConnectAsync(IPEndPoint remoteEndPoint)
 		{
 			CheckDisposed();
 			CheckConnected();
 
+			if (remoteEndPoint is null)
+			{
+				throw new ArgumentNullException(nameof(remoteEndPoint));
+			}
+
+			Validator.ValidatePort(remoteEndPoint.Port);
+			EnsureSocket();
+			RemoteEndPoint = remoteEndPoint;
+
 			if (_connectAsyncEventArgs == null)
 			{
-				_connectAsyncEventArgs = new SocketAsyncEventArgs { RemoteEndPoint = _remoteEndPoint };
+				_connectAsyncEventArgs = new SocketAsyncEventArgs { RemoteEndPoint = RemoteEndPoint };
 				_connectAsyncEventArgs.Completed += OnConnect;
 			}
 
@@ -138,7 +154,8 @@ namespace Neti
 		{
 			Validator.ValidateBytes(bytes, offset, count);
 
-			Socket.Send(bytes, offset, count, SocketFlags.None);
+			var bytesCount = Socket.Send(bytes, offset, count, SocketFlags.None);
+			_bytesSent?.Invoke(new ArraySegment<byte>(bytes, offset, bytesCount));
 		}
 
 		public void SendAsync(byte[] bytes)
@@ -150,12 +167,11 @@ namespace Neti
 		{
 			Validator.ValidateBytes(bytes, offset, count);
 
-			var sendAsyncEventArgs = SendAsyncEventArgsPool.Instance.Alloc();
-			sendAsyncEventArgs.SetBuffer(bytes, offset, count);
+			var eventArgs = OnCreateEventArgs(OnSend, bytes, offset, count);
 			
-			if (Socket.SendAsync(sendAsyncEventArgs) == false)
+			if (Socket.SendAsync(eventArgs) == false)
 			{
-				SendAsyncEventArgsPool.Instance.Free(sendAsyncEventArgs);
+				OnSend(this, eventArgs);
 			}
 		}
 
@@ -190,11 +206,29 @@ namespace Neti
 			GC.SuppressFinalize(this);
 		}
 
+		protected virtual void OnAccepted(Socket socket)
+		{
+			if (socket == null)
+			{
+				throw new ArgumentNullException(nameof(socket));
+			}
+
+			if (socket.Connected == false)
+			{
+				throw new ArgumentException("socket is not connected.", nameof(socket));
+			}
+
+			Socket = socket;
+			RemoteEndPoint = Socket.RemoteEndPoint as IPEndPoint;
+			IsConnected = true;
+			BeginRecevie();
+		}
+
 		void EnsureSocket()
 		{
 			if (Socket == null)
 			{
-				Socket = new Socket(_remoteEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
+				Socket = new Socket(RemoteEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
 				{
 					ExclusiveAddressUse = false,
 					NoDelay = true
@@ -267,20 +301,14 @@ namespace Neti
 			{
 				if (e.BytesTransferred > 0)
 				{
+					_bytesReceived?.Invoke(new ArraySegment<byte>(e.Buffer, e.Offset, e.BytesTransferred));
+
 					var streamBuffer = (StreamBuffer)e.UserToken;
 					streamBuffer.ExternalWrite(e.BytesTransferred);
-					OnBytesReceived(streamBuffer);
 					
-					if (_bytesReceived != null)
-					{
-						_bytesReceived.Invoke(streamBuffer);
-						_recvAsyncEventArgs.SetBuffer(streamBuffer.WritePosition,
-													  streamBuffer.WritableSize);
-					}
-					else
-					{
-						e.SetBuffer(0, e.Buffer.Length);
-					}
+					OnBytesReceived(streamBuffer);
+
+					_recvAsyncEventArgs.SetBuffer(streamBuffer.WritePosition, streamBuffer.WritableSize);
 
 					ReceiveAsync();
 				}
@@ -301,7 +329,30 @@ namespace Neti
 
 		protected virtual void OnBytesReceived(IStreamBufferReader reader)
 		{
+			reader.ExternalRead(reader.ReadableSize);
+		}
 
+		protected virtual SocketAsyncEventArgs OnCreateEventArgs(EventHandler<SocketAsyncEventArgs> handler, byte[] bytes, int offset, int count)
+		{
+			var eventArgs = new SocketAsyncEventArgs();
+			eventArgs.Completed += handler;
+			eventArgs.SetBuffer(bytes, offset, count);
+
+			return eventArgs;
+		}
+
+		void OnSend(object _, SocketAsyncEventArgs e)
+		{
+			if (e.SocketError == SocketError.Success)
+			{
+				_bytesSent?.Invoke(new ArraySegment<byte>(e.Buffer, e.Offset, e.BytesTransferred));
+			}
+			OnBytesSent(e);
+		}
+
+		protected virtual void OnBytesSent(SocketAsyncEventArgs e)
+		{
+			e?.Dispose();
 		}
 
 		void Disconnect(bool reuseSocket)
@@ -382,6 +433,7 @@ namespace Neti
 				_disconnectAsyncEventArgs = null;
 				_disconnectRequired = false;
 				_connected = null;
+				RemoteEndPoint = null;
 			}
 		}
 

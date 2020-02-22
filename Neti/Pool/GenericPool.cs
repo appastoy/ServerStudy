@@ -19,10 +19,28 @@ namespace Neti.Pool
 			return _freeStack.TryPop(out var item) ? item : OnAllocate();
 		}
 
+		public (T Item, bool IsCreated) AllocEx()
+		{
+			Interlocked.Increment(ref _allocCount);
+			if (_freeStack.TryPop(out var item))
+			{
+				return (item, false);
+			}
+			else
+			{
+				return (OnAllocate(), true);
+			}
+		}
+
 		public void Free(T item)
 		{
 			Interlocked.Decrement(ref _allocCount);
 			_freeStack.Push(item);
+		}
+
+		public void Clear()
+		{
+			_freeStack.Clear();
 		}
 
 		protected virtual T OnAllocate()
@@ -32,7 +50,7 @@ namespace Neti.Pool
 
 		protected virtual void OnFree(T _)
 		{
-
+			
 		}
 	}
 }

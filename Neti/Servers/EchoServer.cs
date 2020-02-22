@@ -1,59 +1,38 @@
-﻿using System.Collections.Generic;
-using System.Net;
-using Neti.Buffer;
+﻿using System;
+using System.Collections.Generic;
+using System.Net.Sockets;
 
 namespace Neti.Servers
 {
 	public class EchoServer : TcpListener
 	{
-		readonly List<TcpClient> _clients = new List<TcpClient>();
-
-		public EchoServer() : base(IPAddress.Any, 0)
-		{
-
-		}
-
-		public EchoServer(int port) : base(IPAddress.Any, port)
-		{
-
-		}
-
-		public EchoServer(string ip, int port) : base(ip, port)
-		{
-
-		}
-
-		public EchoServer(IPAddress ip, int port) : base(ip, port)
-		{
-			
-		}
+		readonly List<EchoSession> _sessions = new List<EchoSession>();
 
 		public override void Stop()
 		{
 			if (IsActive)
 			{
-				lock (this) _clients.ForEach(client => client.Close());
+				lock (this) _sessions.ForEach(client => client.Close());
 			}
 			base.Stop();
 		}
 
-		protected override void OnClientEntered(TcpClient newClient)
+		protected override void OnClientEntered(Socket newClientSocket)
 		{
-			if (newClient is null)
+			if (newClientSocket is null)
 			{
-				throw new System.ArgumentNullException(nameof(newClient));
+				throw new ArgumentNullException(nameof(newClientSocket));
 			}
 
-			newClient.BytesReceived += reader => Echo(reader, newClient);
-			newClient.Disconnected += () => { lock (this) _clients.Remove(newClient); };
-			lock (this) _clients.Add(newClient);
+			var newSession = TcpClient.CreateFromSocket<EchoSession>(newClientSocket);
+			newSession.Disconnected += () => { lock (this) _sessions.Remove(newSession); };
+			lock (this) _sessions.Add(newSession);
 		}
 
-		void Echo(IStreamBufferReader reader, TcpClient client)
+		protected override void OnStopped()
 		{
-			var cloneBuffer = BufferUtility.CloneBuffer(reader.Buffer, reader.ReadPosition, reader.ReadableSize);
-			reader.ExternalRead(reader.ReadableSize);
-			client.SendAsync(cloneBuffer);
+			base.OnStopped();
+			_sessions.Clear();
 		}
 	}
 }

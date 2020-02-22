@@ -2,6 +2,7 @@
 using System.Text;
 using FluentAssertions;
 using Neti.Buffer;
+using Neti.Clients;
 using Neti.Servers;
 using NUnit.Framework;
 
@@ -13,26 +14,22 @@ namespace Neti.Tests
         public void EchoMessage()
         {
             int port = 41717;
-            using (var server = new EchoServer(port))
+            using (var server = new EchoServer())
             {
-                server.Start();
+                server.Start(port);
 
-                using (var client = new TcpClient(IPAddress.Loopback, port))
+                using (var client = new EchoClient())
                 {
-                    byte[] receivedData = null;
-                    var sendData = Encoding.UTF8.GetBytes("abc");
+                    var sendMessage = "abc";
+                    string receiveMessage = null;
+                    
+                    client.Connect(IPAddress.Loopback, port);
+                    client.MessageReceived += msg => sendMessage = msg;
+                    client.SendMessage(sendMessage);
 
-                    client.Connect();
-                    client.BytesReceived += reader =>
-                    {
-                        receivedData = BufferUtility.CloneBuffer(reader.Buffer, reader.ReadPosition, reader.ReadableSize);
-                        reader.ExternalRead(reader.ReadableSize);
-                    };
-                    client.Send(sendData);
+                    Waiting.Until(() => receiveMessage != null);
 
-                    Waiting.Until(() => receivedData != null);
-
-                    receivedData.Should().BeEquivalentTo(sendData);
+                    receiveMessage.Should().Be(sendMessage);
                 }
             }
         }
