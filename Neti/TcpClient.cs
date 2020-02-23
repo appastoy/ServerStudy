@@ -438,14 +438,7 @@ namespace Neti
 			if (IsDisposed == false)
 			{
 				IsDisposed = true;
-				if (IsConnected)
-				{
-					IsConnected = false;
-					OnDisconnected();
-					_disconnected?.Invoke();
-				}
-
-				_disconnected = null;
+				
 				_recvAsyncEventArgs?.Dispose();
 				_recvAsyncEventArgs = null;
 				_connectAsyncEventArgs?.Dispose();
@@ -458,6 +451,15 @@ namespace Neti
 				Socket?.Close();
 				Socket = null;
 				RemoteEndPoint = null;
+
+				if (IsConnected)
+				{
+					IsConnected = false;
+					OnDisconnected();
+					_disconnected?.Invoke();
+				}
+
+				_disconnected = null;
 			}
 		}
 
