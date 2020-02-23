@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net.Sockets;
 using System.Text;
 using Neti.Buffer;
 using Neti.Pool;
@@ -30,21 +31,27 @@ namespace Neti.Clients
 			}
 			else
 			{
-				var messageBytes = Encoding.UTF8.GetBytes(message);
-				if (messageBytes.Length > ushort.MaxValue)
-				{
-					throw new ArgumentException($"Message is too long. Max length is {ushort.MaxValue:N0}.");
-				}
+				var buffer = BuildMessageBuffer(message);
+				Send(buffer.Buffer, buffer.ReadPosition, buffer.ReadableSize);
+				_bufferPool.Free(buffer);
+			}
+		}
 
-				if (_bufferPool == null)
-				{
-					_bufferPool = new GenericPool<StreamBuffer>();
-				}
+		public void SendMessageAsync(string message)
+		{
+			if (message is null)
+			{
+				throw new ArgumentNullException(nameof(message));
+			}
 
-				var buffer = _bufferPool.Alloc();
-				buffer.Write((ushort)messageBytes.Length);
-				buffer.Write(messageBytes);
-
+			if (message.Length == 0)
+			{
+				SendAsync(_emtpyMessageBytes);
+			}
+			else
+			{
+				var buffer = BuildMessageBuffer(message);
+				SendAsync(buffer.Buffer, buffer.ReadPosition, buffer.ReadableSize, buffer);
 			}
 		}
 
@@ -64,6 +71,30 @@ namespace Neti.Clients
 			}
 		}
 
-		// TODO: Optimize Send.
+		protected override void OnBytesSent(SocketAsyncEventArgs e)
+		{
+			var buffer = e.UserToken as StreamBuffer ?? throw new ArgumentException("e.UserToken is not a StreamBuffer.");
+			_bufferPool.Free(buffer);
+		}
+
+		StreamBuffer BuildMessageBuffer(string message)
+		{
+			var messageBytes = Encoding.UTF8.GetBytes(message);
+			if (messageBytes.Length > ushort.MaxValue)
+			{
+				throw new ArgumentException($"Message is too long. Max length is {ushort.MaxValue:N0}.");
+			}
+
+			if (_bufferPool == null)
+			{
+				_bufferPool = new GenericPool<StreamBuffer>();
+			}
+
+			var buffer = _bufferPool.Alloc();
+			buffer.Write((ushort)messageBytes.Length);
+			buffer.Write(messageBytes);
+
+			return buffer;
+		}
 	}
 }

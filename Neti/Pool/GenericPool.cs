@@ -4,7 +4,7 @@ using System.Threading;
 
 namespace Neti.Pool
 {
-	class GenericPool<T>
+	public class GenericPool<T>
 	{
 		readonly ConcurrentStack<T> _freeStack = new ConcurrentStack<T>();
 

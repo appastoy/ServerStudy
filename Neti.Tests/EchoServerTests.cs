@@ -24,7 +24,7 @@ namespace Neti.Tests
                     string receiveMessage = null;
                     
                     client.Connect(IPAddress.Loopback, port);
-                    client.MessageReceived += msg => sendMessage = msg;
+                    client.MessageReceived += msg => receiveMessage = msg;
                     client.SendMessage(sendMessage);
 
                     Waiting.Until(() => receiveMessage != null);

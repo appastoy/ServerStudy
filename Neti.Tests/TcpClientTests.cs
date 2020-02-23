@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -81,7 +82,7 @@ namespace Neti.Tests
         {
             using (var client = new TcpClient())
             {
-                ArraySegment<byte>? bytes = new ArraySegment<byte>();
+                var bytes = new ArraySegment<byte>();
                 var sendData = new byte[] { 123 };
 
                 client.Connect(IPAddress.Loopback, _testPort);
@@ -91,8 +92,8 @@ namespace Neti.Tests
 
                 client.Send(sendData);
 
-                Waiting.Until(() => bytes.HasValue);
-                bytes.Value.Array.Should().BeEquivalentTo(sendData);
+                Waiting.Until(() => bytes.Array != null);
+                bytes.Array.Skip(bytes.Offset).Take(bytes.Count).Should().BeEquivalentTo(sendData);
             }
         }
 
@@ -101,7 +102,7 @@ namespace Neti.Tests
         {
             using (var client = new TcpClient())
             {
-                ArraySegment<byte> bytes = null;
+                var bytes = new ArraySegment<byte>();
                 var sendData = new byte[] { 234 };
 
                 client.Connect(IPAddress.Loopback, _testPort);
@@ -111,8 +112,8 @@ namespace Neti.Tests
 
                 client.SendAsync(sendData);
 
-                Waiting.Until(() => bytes != null);
-                bytes.Array.Should().BeEquivalentTo(sendData);
+                Waiting.Until(() => bytes.Array != null);
+                bytes.Array.Skip(bytes.Offset).Take(bytes.Count).Should().BeEquivalentTo(sendData);
             }
         }
 
