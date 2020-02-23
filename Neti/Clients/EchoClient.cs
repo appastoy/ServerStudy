@@ -74,6 +74,7 @@ namespace Neti.Clients
 		protected override void OnBytesSent(SocketAsyncEventArgs e)
 		{
 			var buffer = e.UserToken as StreamBuffer ?? throw new ArgumentException("e.UserToken is not a StreamBuffer.");
+			e.UserToken = null;
 			_bufferPool.Free(buffer);
 		}
 
