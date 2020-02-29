@@ -45,7 +45,7 @@ namespace Neti
                 throw new ArgumentNullException(nameof(ip));
             }
 
-            if (IPAddress.TryParse(ip, out var ipAddress))
+            if (IPAddress.TryParse(ip, out var ipAddress) == false)
             {
                 throw new ArgumentException("Invalid ip.");
             }

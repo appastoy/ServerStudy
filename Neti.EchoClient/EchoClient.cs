@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using Neti.Buffer;
 using Neti.Pool;
 
@@ -11,6 +12,7 @@ namespace Neti.Echo
 		Action<string> _messageReceived;
 		byte[] _emtpyMessageBytes = new byte[2];
 		GenericPool<StreamBuffer> _bufferPool;
+		volatile int hasReceiveMessage;
 
 		public event Action<string> MessageReceived
 		{
@@ -33,6 +35,7 @@ namespace Neti.Echo
 			{
 				var buffer = BuildMessageBuffer(message);
 				Send(buffer.Buffer, buffer.ReadPosition, buffer.ReadableSize);
+				buffer.ResetPosition();
 				_bufferPool.Free(buffer);
 			}
 		}
@@ -79,9 +82,12 @@ namespace Neti.Echo
 
 		protected override void OnBytesSent(SocketAsyncEventArgs e)
 		{
-			var buffer = e.UserToken as StreamBuffer ?? throw new ArgumentException("e.UserToken is not a StreamBuffer.");
+			if (e.UserToken is StreamBuffer buffer)
+			{
+				buffer.ResetPosition();
+				_bufferPool.Free(buffer);
+			}
 			e.UserToken = null;
-			_bufferPool.Free(buffer);
 		}
 
 		StreamBuffer BuildMessageBuffer(string message)

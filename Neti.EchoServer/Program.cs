@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading;
+using Neti.LogSystem;
 
 namespace Neti.Echo
 {
@@ -7,32 +8,36 @@ namespace Neti.Echo
 	{
 		static void Main(string[] args)
 		{
+			Logger.AddLogger(new ConsoleLogger());
+			Logger.AddLogger(new FileLogger($"{DateTime.Now:yyyyMMdd}_EchoServerLog.txt"));
+			Logger.EnableAutoFlush();
+
 			if (Arguments.TryParse(args, out var arguments) == false)
 			{
-				Console.WriteLine("Invalid arguments.\nUsage: EchoServer {Port}");
+				Logger.LogError("Invalid arguments.\nUsage: Neti.EchoServer {Port}");
 				Environment.Exit(1);
 				return;
 			}
 
 			using (var echoServer = new EchoServer())
 			{
-				echoServer.Started += () => Console.WriteLine("# Server Started.");
-				echoServer.Stopped += () => Console.WriteLine("# Server Stopped.");
+				echoServer.Started += () => Logger.LogInfo("# Server Started.");
+				echoServer.Stopped += () => Logger.LogInfo("# Server Stopped.");
 				echoServer.SessionEntered += session =>
 				{
 					var clientId = $"{session.Address}:{session.Port}";
-					Console.WriteLine($"# Client Entered. ({clientId})");
+					Logger.LogInfo($"# Client Entered. ({clientId})");
 
-					session.MessageReceived += msg => Console.WriteLine($"{clientId} > {msg}");
-					session.Disconnected += () => Console.WriteLine($"# Client Disconnected. ({clientId})");
+					session.MessageReceived += msg => Logger.LogInfo($"{clientId} > {msg}");
+					session.Disconnected += () => Logger.LogInfo($"# Client Disconnected. ({clientId})");
 				};
 
-				Console.WriteLine($"# Starting server... (Port: {arguments.Port})");
+				Logger.LogInfo($"# Starting server... (Port: {arguments.Port})");
 				echoServer.Start(arguments.Port);
 
 				if (echoServer.IsActive == false)
 				{
-					Console.WriteLine("# Failed to start server.");
+					Logger.LogError("# Failed to start server.");
 					Environment.Exit(2);
 					return;
 				}

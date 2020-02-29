@@ -1,14 +1,17 @@
 ﻿using System;
+using System.Threading;
 
 namespace Neti.Echo
 {
 	class Program
 	{
+		static volatile int receiveMessageCheck;
+
 		static void Main(string[] args)
 		{
 			if (Arguments.TryParse(args, out var arguments) == false)
 			{
-				Console.WriteLine("Invalid arguments.\nUsage: EchoClient {IP} {Port}");
+				Console.WriteLine("Invalid arguments.\nUsage: Neti.EchoClient {IP} {Port}");
 				Environment.Exit(1);
 				return;
 			}
@@ -17,7 +20,11 @@ namespace Neti.Echo
 			{
 				var serverId = $"{arguments.Ip}:{arguments.Port}";
 				echoClient.Connected += () => Console.WriteLine("# Connected! If you want to exit, type \"/exit\".");
-				echoClient.MessageReceived += msg => Console.WriteLine($"{serverId} > {msg}");
+				echoClient.MessageReceived += msg =>
+				{
+					Console.WriteLine($"{serverId} > {msg}");
+					Interlocked.Exchange(ref receiveMessageCheck, 1);
+				};
 				echoClient.Disconnected += () => Console.WriteLine("# Disconnected.");
 
 				Console.WriteLine($"# Connecting to {serverId}...");
@@ -39,7 +46,12 @@ namespace Neti.Echo
 						echoClient.Disconnect();
 						break;
 					}
+					Interlocked.Exchange(ref receiveMessageCheck, 0);
 					echoClient.SendMessage(msg);
+					while (receiveMessageCheck == 0)
+					{
+						Thread.Yield();
+					}
 				}
 			}
 

@@ -8,7 +8,7 @@ namespace Neti.Echo
 	public class EchoSession : TcpClient
 	{
 		Action<string> _messageReceived;
-
+		
 		public event Action<string> MessageReceived
 		{
 			add => _messageReceived += value;
@@ -27,7 +27,7 @@ namespace Neti.Echo
 					_messageReceived?.Invoke(message);
 					OnMessageReceived(message);
 
-					SendAsync(reader.Buffer, reader.ReadPosition, reader.ReadableSize, reader);
+					SendAsync(reader.Buffer, reader.ReadPosition, totalSize, reader);
 				}
 			}
 		}
@@ -36,7 +36,7 @@ namespace Neti.Echo
 		{
 			if (e.UserToken is IStreamBufferReader reader)
 			{
-				reader.ExternalRead(reader.ReadableSize);
+				reader.ExternalRead(e.BytesTransferred);
 			}
 			e.UserToken = null;
 		}
@@ -44,6 +44,12 @@ namespace Neti.Echo
 		protected virtual void OnMessageReceived(string message)
 		{
 			
+		}
+
+		protected override void Dispose(bool disposing)
+		{
+			base.Dispose(disposing);
+			_messageReceived = null;
 		}
 	}
 }

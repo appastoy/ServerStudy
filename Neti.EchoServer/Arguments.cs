@@ -6,7 +6,7 @@
 		{
 			if (args == null ||
 				args.Length < 1 ||
-				ushort.TryParse(args[1], out var port) == false ||
+				ushort.TryParse(args[0], out var port) == false ||
 				Validator.IsValidPort(port) == false)
 			{
 				arguments = new Arguments();

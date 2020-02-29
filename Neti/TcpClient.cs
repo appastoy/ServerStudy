@@ -299,16 +299,16 @@ namespace Neti
 				_recvAsyncEventArgs.SetBuffer(buffer.Buffer, 0, buffer.WritableSize);
 			}
 
-			ReceiveAsync();
+			ReceiveAsync(_recvAsyncEventArgs);
 		}
 
-		void ReceiveAsync()
+		void ReceiveAsync(SocketAsyncEventArgs e)
 		{
 			if (Socket != null &&
 				Socket.Connected &&
-				Socket.ReceiveAsync(_recvAsyncEventArgs) == false)
+				Socket.ReceiveAsync(e) == false)
 			{
-				OnReceive(this, _recvAsyncEventArgs);
+				OnReceive(this, e);
 			}
 		}
 
@@ -324,9 +324,9 @@ namespace Neti
 
 				OnBytesReceived(streamBuffer);
 
-				_recvAsyncEventArgs.SetBuffer(streamBuffer.WritePosition, streamBuffer.WritableSize);
+				e.SetBuffer(streamBuffer.WritePosition, streamBuffer.WritableSize);
 
-				ReceiveAsync();
+				ReceiveAsync(e);
 			}
 			else if (_disconnectRequested)
 			{

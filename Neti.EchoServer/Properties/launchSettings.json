@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Neti.EchoServer": {
+      "commandName": "Project",
+      "commandLineArgs": "41717"
+    }
+  }
+}
