@@ -1,14 +1,11 @@
 ﻿using System.Net;
-using System.Text;
 using FluentAssertions;
-using Neti.Buffer;
-using Neti.Clients;
-using Neti.Servers;
+using Neti.Echo;
 using NUnit.Framework;
 
 namespace Neti.Tests
 {
-	class EchoServerTests
+	class EchoTests
 	{
         [Test]
         public void EchoMessage()

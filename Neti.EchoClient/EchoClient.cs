@@ -4,7 +4,7 @@ using System.Text;
 using Neti.Buffer;
 using Neti.Pool;
 
-namespace Neti.Clients
+namespace Neti.Echo
 {
 	public class EchoClient : TcpClient
 	{
@@ -67,8 +67,14 @@ namespace Neti.Clients
 					reader.ExternalRead(totalSize);
 
 					_messageReceived?.Invoke(message);
+					OnMessageReceived(message);
 				}
 			}
+		}
+
+		protected virtual void OnMessageReceived(string message)
+		{
+
 		}
 
 		protected override void OnBytesSent(SocketAsyncEventArgs e)

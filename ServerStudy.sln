@@ -7,6 +7,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Neti", "Neti\Neti.csproj", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Neti.Tests", "Neti.Tests\Neti.Tests.csproj", "{DDD57941-3FE7-4283-9C44-2AD70CD155BF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Neti.EchoServer", "Neti.EchoServer\Neti.EchoServer.csproj", "{68FDC599-95EA-4B74-99E8-73DE61A1FC4D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Neti.EchoClient", "Neti.EchoClient\Neti.EchoClient.csproj", "{2354052E-CE46-4E96-A93B-1A89DA2CDB59}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +25,14 @@ Global
 		{DDD57941-3FE7-4283-9C44-2AD70CD155BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DDD57941-3FE7-4283-9C44-2AD70CD155BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DDD57941-3FE7-4283-9C44-2AD70CD155BF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{68FDC599-95EA-4B74-99E8-73DE61A1FC4D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68FDC599-95EA-4B74-99E8-73DE61A1FC4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68FDC599-95EA-4B74-99E8-73DE61A1FC4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68FDC599-95EA-4B74-99E8-73DE61A1FC4D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2354052E-CE46-4E96-A93B-1A89DA2CDB59}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2354052E-CE46-4E96-A93B-1A89DA2CDB59}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2354052E-CE46-4E96-A93B-1A89DA2CDB59}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2354052E-CE46-4E96-A93B-1A89DA2CDB59}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
