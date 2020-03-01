@@ -2,10 +2,14 @@
 using System.Net;
 using System.Net.Sockets;
 using Neti.Buffer;
+using Neti.Packets;
 using Neti.Pool;
 
 namespace Neti
 {
+	public delegate void PacketAction(in PacketReader reader);
+	public delegate void BytesAction(in ArraySegment<byte> bytes);
+
 	public class TcpClient : IDisposable
 	{
 		public static TcpClient CreateFromSocket(Socket socket)
@@ -26,8 +30,11 @@ namespace Neti
 
 		Action _connected;
 		Action _disconnected;
-		Action<ArraySegment<byte>> _bytesReceived;
-		Action<ArraySegment<byte>> _bytesSent;
+		PacketAction _packetReceived;
+		BytesAction _bytesSent;
+
+		StreamBuffer _receiveBuffer;
+		StreamBuffer _sendBuffer;
 		SocketAsyncEventArgs _connectAsyncEventArgs;
 		SocketAsyncEventArgs _disconnectAsyncEventArgs;
 		SocketAsyncEventArgs _recvAsyncEventArgs;
@@ -54,16 +61,27 @@ namespace Neti
 			remove => _disconnected -= value;
 		}
 
-		public event Action<ArraySegment<byte>> BytesReceived
+		public event PacketAction PacketReceived
 		{
-			add => _bytesReceived += value;
-			remove => _bytesReceived -= value;
+			add => _packetReceived += value;
+			remove => _packetReceived -= value;
 		}
 
-		public event Action<ArraySegment<byte>> BytesSent
+		public event BytesAction BytesSent
 		{
 			add => _bytesSent += value;
 			remove => _bytesSent -= value;
+		}
+
+		public TcpClient() : this(new StreamBuffer(), new StreamBuffer())
+		{
+
+		}
+
+		public TcpClient(StreamBuffer receiveBuffer, StreamBuffer sendBuffer)
+		{
+			_receiveBuffer = receiveBuffer ?? throw new ArgumentNullException(nameof(receiveBuffer));
+			_sendBuffer = sendBuffer ?? throw new ArgumentNullException(nameof(sendBuffer));
 		}
 
 		public void SetSendEventArgsPool(GenericPool<SocketAsyncEventArgs> pool)
@@ -151,44 +169,90 @@ namespace Neti
 			}
 		}
 
-		public void Send(byte[] bytes)
+		public int Send(byte[] bytes)
 		{
-			Send(bytes, 0, bytes is null ? 0 : bytes.Length);
+			return Send(bytes, 0, bytes != null ? bytes.Length : 0);
 		}
 
-		public void Send(byte[] bytes, int offset, int count)
+		public int Send(byte[] bytes, int offset, int count)
 		{
 			Validator.ValidateBytes(bytes, offset, count);
 
-			var bytesCount = Socket.Send(bytes, offset, count, SocketFlags.None);
-			_bytesSent?.Invoke(new ArraySegment<byte>(bytes, offset, bytesCount));
+			CheckDisposed();
+
+			using (var writer = CreatePacketWriter())
+			{
+				writer.Write(bytes, offset, count);
+			}
+			return FlushPackets();
 		}
 
-		public void SendAsync(byte[] bytes, object userToken = null)
+		public void SendAsync(byte[] bytes)
 		{
-			SendAsync(bytes, 0, bytes != null ? bytes.Length : 0, userToken);
+			SendAsync(bytes, 0, bytes != null ? bytes.Length : 0);
 		}
 
-		public void SendAsync(byte[] bytes, int offset, int count, object userToken = null)
+		public void SendAsync(byte[] bytes, int offset, int count)
 		{
 			Validator.ValidateBytes(bytes, offset, count);
 
-			if (_sendAsyncEventArgsPool == null)
+			CheckDisposed();
+
+			using (var writer = CreatePacketWriter())
 			{
-				_sendAsyncEventArgsPool = new GenericPool<SocketAsyncEventArgs>();
+				writer.Write(bytes, offset, count);
+			}
+			FlushPacketsAsync();
+		}
+
+		public PacketWriter CreatePacketWriter()
+		{
+			return new PacketWriter(_sendBuffer);
+		}
+
+		public int FlushPackets()
+		{
+			CheckDisposed();
+
+			if (IsConnected &&
+				_sendBuffer.ProcessableSize > 0)
+			{
+				var bytesCount = Socket.Send(_sendBuffer.Buffer, _sendBuffer.ProcessingPosition, _sendBuffer.ProcessableSize, SocketFlags.None);
+				_sendBuffer.ExternalProcess();
+				_sendBuffer.ExternalRead(bytesCount);
+
+				return bytesCount;
 			}
 
-			var (eventArgs, isCreated) = _sendAsyncEventArgsPool.AllocEx();
-			if (isCreated)
-			{
-				eventArgs.Completed += OnSend;
-			}
-			eventArgs.SetBuffer(bytes, offset, count);
-			eventArgs.UserToken = userToken;
+			return 0;
+		}
 
-			if (Socket.SendAsync(eventArgs) == false)
+		public void FlushPacketsAsync()
+		{
+			CheckDisposed();
+
+			if (IsConnected &&
+				_sendBuffer.ProcessableSize > 0)
 			{
-				OnSend(this, eventArgs);
+				if (_sendAsyncEventArgsPool == null)
+				{
+					_sendAsyncEventArgsPool = new GenericPool<SocketAsyncEventArgs>();
+				}
+
+				var (eventArgs, isCreated) = _sendAsyncEventArgsPool.AllocEx();
+				if (isCreated)
+				{
+					eventArgs.Completed += OnSend;
+				}
+
+				eventArgs.SetBuffer(_sendBuffer.Buffer, _sendBuffer.ProcessingPosition, _sendBuffer.ProcessableSize);
+				_sendBuffer.ExternalProcess();
+				eventArgs.UserToken = _sendBuffer;
+
+				if (Socket.SendAsync(eventArgs) == false)
+				{
+					OnSend(this, eventArgs);
+				}
 			}
 		}
 
@@ -292,11 +356,8 @@ namespace Neti
 			{
 				_recvAsyncEventArgs = new SocketAsyncEventArgs();
 				_recvAsyncEventArgs.Completed += OnReceive;
-
-				// TODO: Optimize buffer.
-				var buffer = new StreamBuffer();
-				_recvAsyncEventArgs.UserToken = buffer;
-				_recvAsyncEventArgs.SetBuffer(buffer.Buffer, 0, buffer.WritableSize);
+				_recvAsyncEventArgs.UserToken = _receiveBuffer;
+				_recvAsyncEventArgs.SetBuffer(_receiveBuffer.Buffer, 0, _receiveBuffer.WritableSize);
 			}
 
 			ReceiveAsync(_recvAsyncEventArgs);
@@ -317,12 +378,23 @@ namespace Neti
 			if (e.SocketError == SocketError.Success &&
 				e.BytesTransferred > 0)
 			{
-				_bytesReceived?.Invoke(new ArraySegment<byte>(e.Buffer, e.Offset, e.BytesTransferred));
-
 				var streamBuffer = (StreamBuffer)e.UserToken;
 				streamBuffer.ExternalWrite(e.BytesTransferred);
 
-				OnBytesReceived(streamBuffer);
+				while (streamBuffer.ReadableSize > 2)
+				{
+					var packetSize = streamBuffer.Peek<ushort>();
+					var totalSize = packetSize + 2;
+					if (streamBuffer.ReadableSize < totalSize)
+					{
+						break;
+					}
+
+					var packetReader = new PacketReader(streamBuffer.Buffer, streamBuffer.ReadPosition, totalSize);
+					_packetReceived?.Invoke(in packetReader);
+
+					streamBuffer.ExternalRead(totalSize);
+				}
 
 				e.SetBuffer(streamBuffer.WritePosition, streamBuffer.WritableSize);
 
@@ -338,26 +410,19 @@ namespace Neti
 			}
 		}
 
-		protected virtual void OnBytesReceived(IStreamBufferReader reader)
-		{
-			reader.ExternalRead(reader.ReadableSize);
-		}
-
 		static void OnSend(object sender, SocketAsyncEventArgs e)
 		{
-			var client = sender as TcpClient ?? throw new ArgumentException("sender is not TcpClient.", nameof(sender));
+			var client = sender as TcpClient ?? throw new InvalidOperationException("sender is not a TcpClient.");
 			if (e.SocketError == SocketError.Success)
 			{
 				client._bytesSent?.Invoke(new ArraySegment<byte>(e.Buffer, e.Offset, e.BytesTransferred));
 			}
-			client.OnBytesSent(e);
+			
+			var buffer = (StreamBuffer)e.UserToken;
+			buffer.ExternalRead(e.BytesTransferred);
+			e.UserToken = null;
 			e.SetBuffer(null, 0, 0);
 			client._sendAsyncEventArgsPool.Free(e);
-		}
-
-		protected virtual void OnBytesSent(SocketAsyncEventArgs e)
-		{
-
 		}
 
 		void Disconnect(bool reuseSocket)
@@ -438,7 +503,9 @@ namespace Neti
 			if (IsDisposed == false)
 			{
 				IsDisposed = true;
-				
+
+				_receiveBuffer = null;
+				_sendBuffer = null;
 				_recvAsyncEventArgs?.Dispose();
 				_recvAsyncEventArgs = null;
 				_connectAsyncEventArgs?.Dispose();

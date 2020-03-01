@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Net.Sockets;
-using System.Text;
 using Neti.Buffer;
+using Neti.Packets;
 
 namespace Neti.Echo
 {
@@ -15,41 +15,34 @@ namespace Neti.Echo
 			remove => _messageReceived -= value;
 		}
 
-		protected override void OnBytesReceived(IStreamBufferReader reader)
+		public EchoSession()
 		{
-			if (reader.ReadableSize >= 2)
-			{
-				var size = reader.Peek<ushort>();
-				var totalSize = size + 2;
-				if (reader.ReadableSize >= totalSize)
-				{
-					var message = Encoding.UTF8.GetString(reader.Buffer, reader.ReadPosition + 2, size);
-					_messageReceived?.Invoke(message);
-					OnMessageReceived(message);
-
-					SendAsync(reader.Buffer, reader.ReadPosition, totalSize, reader);
-				}
-			}
+			PacketReceived += OnPacketReceived;
 		}
 
-		protected override void OnBytesSent(SocketAsyncEventArgs e)
+		void OnPacketReceived(in PacketReader reader)
 		{
-			if (e.UserToken is IStreamBufferReader reader)
-			{
-				reader.ExternalRead(e.BytesTransferred);
-			}
-			e.UserToken = null;
+			reader.Reset();
+			var message = reader.ReadString();
+			_messageReceived?.Invoke(message);
+
+			EchoMessage(message);
 		}
 
-		protected virtual void OnMessageReceived(string message)
+		void EchoMessage(string message)
 		{
-			
+			using (var writer = CreatePacketWriter())
+			{
+				writer.Write(message);
+			}
+			FlushPacketsAsync();
 		}
 
 		protected override void Dispose(bool disposing)
 		{
-			base.Dispose(disposing);
 			_messageReceived = null;
+			PacketReceived -= OnPacketReceived;
+			base.Dispose(disposing);
 		}
 	}
 }

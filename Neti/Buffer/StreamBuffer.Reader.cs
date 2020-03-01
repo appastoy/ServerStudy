@@ -4,7 +4,14 @@ namespace Neti.Buffer
 {
     partial class StreamBuffer : IStreamBufferReader
 	{
-		public int ReadPosition { get; set; }
+        int _readPosition;
+
+		public int ReadPosition
+        {
+            get => _readPosition + Offset;
+            set => _readPosition = value - Offset;
+        }
+
 		public int ReadableSize => WritePosition - ReadPosition;
 
         public T Read<T>() where T : unmanaged
@@ -62,7 +69,7 @@ namespace Neti.Buffer
         {
             if (ReadableSize <= 0)
             {
-                WritePosition = ReadPosition = 0;
+                ResetPosition();
             }
         }
     }

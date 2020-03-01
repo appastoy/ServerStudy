@@ -4,6 +4,8 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Neti.Buffer;
+using Neti.Packets;
 using NUnit.Framework;
 
 namespace Neti.Tests
@@ -88,7 +90,7 @@ namespace Neti.Tests
                 client.Connect(IPAddress.Loopback, _testPort);
 
                 Waiting.Until(() => _connectedClient != null);
-                _connectedClient.BytesReceived += buffer => bytes = buffer; 
+                _connectedClient.PacketReceived += (in PacketReader reader) => bytes = reader.ReadBytes(); 
 
                 client.Send(sendData);
 
@@ -102,13 +104,13 @@ namespace Neti.Tests
         {
             using (var client = new TcpClient())
             {
-                var bytes = new ArraySegment<byte>();
+                ArraySegment<byte> bytes = null;
                 var sendData = new byte[] { 234 };
 
                 client.Connect(IPAddress.Loopback, _testPort);
 
                 Waiting.Until(() => _connectedClient != null);
-                _connectedClient.BytesReceived += buffer => bytes = buffer;
+                _connectedClient.PacketReceived += (in PacketReader reader) => bytes = reader.ReadBytes();
 
                 client.SendAsync(sendData);
 

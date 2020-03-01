@@ -7,9 +7,15 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Neti", "Neti\Neti.csproj", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Neti.Tests", "Neti.Tests\Neti.Tests.csproj", "{DDD57941-3FE7-4283-9C44-2AD70CD155BF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Neti.EchoServer", "Neti.EchoServer\Neti.EchoServer.csproj", "{68FDC599-95EA-4B74-99E8-73DE61A1FC4D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Neti.EchoServer", "Neti.EchoServer\Neti.EchoServer.csproj", "{68FDC599-95EA-4B74-99E8-73DE61A1FC4D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Neti.EchoClient", "Neti.EchoClient\Neti.EchoClient.csproj", "{2354052E-CE46-4E96-A93B-1A89DA2CDB59}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Neti.EchoClient", "Neti.EchoClient\Neti.EchoClient.csproj", "{2354052E-CE46-4E96-A93B-1A89DA2CDB59}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Libraries", "Libraries", "{0F2E7E74-EF02-48A7-AEC6-C46091DF3469}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Samples", "Samples", "{3D9D79D7-FFC9-4299-9885-731BC8EF25C1}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "01_Echo", "01_Echo", "{5EE10049-4315-4627-AD88-F8D4A76629E6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -36,6 +42,12 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{E8A7E802-7A33-4C9B-8722-5B565CAF5475} = {0F2E7E74-EF02-48A7-AEC6-C46091DF3469}
+		{68FDC599-95EA-4B74-99E8-73DE61A1FC4D} = {5EE10049-4315-4627-AD88-F8D4A76629E6}
+		{2354052E-CE46-4E96-A93B-1A89DA2CDB59} = {5EE10049-4315-4627-AD88-F8D4A76629E6}
+		{5EE10049-4315-4627-AD88-F8D4A76629E6} = {3D9D79D7-FFC9-4299-9885-731BC8EF25C1}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {D10DFBFC-32C3-441D-B539-6B12A8E61776}

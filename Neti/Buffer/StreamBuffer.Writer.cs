@@ -4,7 +4,14 @@ namespace Neti.Buffer
 {
     partial class StreamBuffer
 	{
-        public int WritePosition { get; set; }
+        int _writePosition;
+
+        public int WritePosition
+        {
+            get => _writePosition + Offset;
+            set => _writePosition = value - Offset;
+        }
+
         public int WritableSize => Capacity - WritePosition;
 
         public void Write<T>(in T value) where T : unmanaged
