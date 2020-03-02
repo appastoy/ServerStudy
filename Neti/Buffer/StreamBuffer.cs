@@ -2,7 +2,7 @@
 
 namespace Neti.Buffer
 {
-    public partial class StreamBuffer : IStreamBufferReader, IStreamBufferWriter
+    public partial class StreamBuffer
     {
         public const int DefaultSize = 4096;
 

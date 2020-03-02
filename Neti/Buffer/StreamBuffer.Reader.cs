@@ -2,7 +2,7 @@
 
 namespace Neti.Buffer
 {
-    partial class StreamBuffer : IStreamBufferReader
+    partial class StreamBuffer
 	{
         int _readPosition;
 
