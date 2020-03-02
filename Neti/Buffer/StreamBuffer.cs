@@ -55,9 +55,9 @@ namespace Neti.Buffer
             WritePosition = ReadPosition = ProcessedSize = 0;
         }
 
-        public void ExternalProcess()
+        public void ExternalProcess(int size)
         {
-            ProcessedSize += ProcessableSize;
+            ProcessedSize += size;
         }
     }
 }

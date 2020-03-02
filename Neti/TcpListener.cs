@@ -104,8 +104,8 @@ namespace Neti
             {
                 Socket.Close();
                 Socket = null;
-                OnStopped();
                 _stopped?.Invoke();
+                OnStopped();
             }
         }
 

@@ -218,7 +218,7 @@ namespace Neti
 				_sendBuffer.ProcessableSize > 0)
 			{
 				var bytesCount = Socket.Send(_sendBuffer.Buffer, _sendBuffer.ProcessingPosition, _sendBuffer.ProcessableSize, SocketFlags.None);
-				_sendBuffer.ExternalProcess();
+				_sendBuffer.ExternalProcess(_sendBuffer.ProcessableSize);
 				_sendBuffer.ExternalRead(bytesCount);
 
 				return bytesCount;
@@ -246,7 +246,7 @@ namespace Neti
 				}
 
 				eventArgs.SetBuffer(_sendBuffer.Buffer, _sendBuffer.ProcessingPosition, _sendBuffer.ProcessableSize);
-				_sendBuffer.ExternalProcess();
+				_sendBuffer.ExternalProcess(_sendBuffer.ProcessableSize);
 				eventArgs.UserToken = _sendBuffer;
 
 				if (Socket.SendAsync(eventArgs) == false)
@@ -390,10 +390,8 @@ namespace Neti
 						break;
 					}
 
-					var packetReader = new PacketReader(streamBuffer.Buffer, streamBuffer.ReadPosition, totalSize);
+					var packetReader = new PacketReader(streamBuffer, totalSize);
 					_packetReceived?.Invoke(in packetReader);
-
-					streamBuffer.ExternalRead(totalSize);
 				}
 
 				e.SetBuffer(streamBuffer.WritePosition, streamBuffer.WritableSize);

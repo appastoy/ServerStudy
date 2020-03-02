@@ -50,6 +50,7 @@ namespace Neti.Echo
 		{
 			reader.Reset();
 			var message = reader.ReadString();
+			reader.Use();
 
 			_messageReceived?.Invoke(message);
 		}

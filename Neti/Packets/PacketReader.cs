@@ -1,26 +1,31 @@
 ﻿using System;
 using System.Text;
+using Neti.Buffer;
 
 namespace Neti.Packets
 {
 	public struct PacketReader
 	{
+		readonly StreamBuffer _streamBuffer;
 		int _readPosition;
 
-		public byte[] Buffer { get; }
+		public byte[] Buffer => _streamBuffer.Buffer;
 		public int Offset { get; }
 		public int Count { get; }
+		public bool IsUsed { get; private set; }
 
 		public int ReadPosition => Offset + _readPosition + 2;
 		public int PacketSize => Count - 2;
 
 
-		public PacketReader(byte[] bytes, int offset, int count)
+		public PacketReader(StreamBuffer streamBuffer, int count)
 		{
-			Buffer = bytes ?? throw new ArgumentNullException(nameof(bytes));
-			Offset = offset;
+			_streamBuffer = streamBuffer ?? throw new ArgumentNullException(nameof(streamBuffer));
+			Offset = _streamBuffer.ProcessingPosition;
 			Count = count;
+			_streamBuffer.ExternalProcess(count);
 			_readPosition = 0;
+			IsUsed = false;
 		}
 
 		public T Read<T>() where T : unmanaged
@@ -43,6 +48,17 @@ namespace Neti.Packets
 		{
 			var bytesSegment = ReadBytes();
 			return Encoding.UTF8.GetString(bytesSegment.Array, bytesSegment.Offset, bytesSegment.Count);
+		}
+
+		public void Use()
+		{
+			if (IsUsed)
+			{
+				return;
+			}
+
+			IsUsed = true;
+			_streamBuffer.ExternalRead(Count);
 		}
 
 		unsafe T ReadValue<T>() where T : unmanaged

@@ -15,15 +15,6 @@ namespace Neti.Echo
 			remove => _sessionEntered -= value;
 		}
 
-		public override void Stop()
-		{
-			if (IsActive)
-			{
-				lock (this) _sessions.ForEach(client => client.Close());
-			}
-			base.Stop();
-		}
-
 		protected override void OnClientEntered(Socket newClientSocket)
 		{
 			if (newClientSocket is null)
@@ -36,20 +27,12 @@ namespace Neti.Echo
 			lock (this) _sessions.Add(newSession);
 
 			_sessionEntered?.Invoke(newSession);
-			OnSessionEntered(newSession);
-		}
-
-		protected virtual void OnSessionEntered(EchoSession newSession)
-		{
-
 		}
 
 		protected override void OnStopped()
 		{
+			lock (this) _sessions.Clear();
 			base.OnStopped();
-			_sessions.Clear();
 		}
-
-
 	}
 }

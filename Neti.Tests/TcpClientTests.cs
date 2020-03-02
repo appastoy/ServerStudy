@@ -90,7 +90,11 @@ namespace Neti.Tests
                 client.Connect(IPAddress.Loopback, _testPort);
 
                 Waiting.Until(() => _connectedClient != null);
-                _connectedClient.PacketReceived += (in PacketReader reader) => bytes = reader.ReadBytes(); 
+                _connectedClient.PacketReceived += (in PacketReader reader) =>
+                {
+                    bytes = reader.ReadBytes();
+                    reader.Use();
+                };
 
                 client.Send(sendData);
 
@@ -110,7 +114,11 @@ namespace Neti.Tests
                 client.Connect(IPAddress.Loopback, _testPort);
 
                 Waiting.Until(() => _connectedClient != null);
-                _connectedClient.PacketReceived += (in PacketReader reader) => bytes = reader.ReadBytes();
+                _connectedClient.PacketReceived += (in PacketReader reader) =>
+                {
+                    bytes = reader.ReadBytes();
+                    reader.Use();
+                };
 
                 client.SendAsync(sendData);
 
