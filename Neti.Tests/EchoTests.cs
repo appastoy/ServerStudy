@@ -1,6 +1,9 @@
 ﻿using System.Net;
 using FluentAssertions;
 using Neti.Echo;
+using Neti.Echo.Client;
+using Neti.Echo.Server;
+using Neti.Packets;
 using NUnit.Framework;
 
 namespace Neti.Tests
@@ -21,8 +24,14 @@ namespace Neti.Tests
                     string receiveMessage = null;
                     
                     client.Connect(IPAddress.Loopback, port);
-                    client.MessageReceived += msg => receiveMessage = msg;
-                    client.SendMessage(sendMessage);
+                    client.PacketReceived += reader =>
+                    {
+                        reader.Reset();
+                        reader.Read<ushort>();
+                        receiveMessage = reader.ReadString();
+                    };
+                    Rpc.ClientToServer.RequestEcho(client, sendMessage);
+                    client.FlushPackets();
 
                     Waiting.Until(() => receiveMessage != null);
 

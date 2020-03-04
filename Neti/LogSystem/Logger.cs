@@ -28,16 +28,16 @@ namespace Neti.LogSystem
 
 	public static class Logger
 	{
-		static int _flushRateMilliSeconds;
+		static int flushRateMilliSeconds;
 
-		static readonly List<ILogger> _loggers = new List<ILogger>();
-		static readonly ConcurrentQueue<LogData> _logDatas = new ConcurrentQueue<LogData>();
+		static readonly List<ILogger> loggers = new List<ILogger>();
+		static readonly ConcurrentQueue<LogData> logDatas = new ConcurrentQueue<LogData>();
 
 		public static bool AutoFlush { get; private set; }
 		public static int FlushRateMilliSeconds
 		{
-			get => _flushRateMilliSeconds;
-			set => _flushRateMilliSeconds = Math.Max(0, value);
+			get => flushRateMilliSeconds;
+			set => flushRateMilliSeconds = Math.Max(0, value);
 		}
 
 		public static void AddLogger(ILogger logger)
@@ -47,20 +47,20 @@ namespace Neti.LogSystem
 				throw new ArgumentNullException(nameof(logger));
 			}
 
-			lock (_loggers)
+			lock (loggers)
 			{
-				_loggers.Add(logger);
+				loggers.Add(logger);
 			}
 		}
 
 		public static TLogger FindLogger<TLogger>() where TLogger : ILogger
 		{
-			return _loggers.OfType<TLogger>().FirstOrDefault();
+			return loggers.OfType<TLogger>().FirstOrDefault();
 		}
 
 		public static TLogger[] FindLoggers<TLogger>() where TLogger : ILogger
 		{
-			return _loggers.OfType<TLogger>().ToArray();
+			return loggers.OfType<TLogger>().ToArray();
 		}
 
 		public static void RemoveLogger(ILogger logger)
@@ -70,33 +70,33 @@ namespace Neti.LogSystem
 				throw new ArgumentNullException(nameof(logger));
 			}
 
-			lock (_loggers)
+			lock (loggers)
 			{
-				_loggers.Remove(logger);
+				loggers.Remove(logger);
 			}
 		}
 
 		public static void ClearLoggers()
 		{
-			lock (_loggers)
+			lock (loggers)
 			{
-				_loggers.Clear();
+				loggers.Clear();
 			}
 		}
 
 		public static void LogInfo(string message)
 		{
-			_logDatas.Enqueue(new LogData(LogType.Info, message));
+			logDatas.Enqueue(new LogData(LogType.Info, message));
 		}
 
 		public static void LogWarning(string message)
 		{
-			_logDatas.Enqueue(new LogData(LogType.Warning, message));
+			logDatas.Enqueue(new LogData(LogType.Warning, message));
 		}
 
 		public static void LogError(string message)
 		{
-			_logDatas.Enqueue(new LogData(LogType.Error, message));
+			logDatas.Enqueue(new LogData(LogType.Error, message));
 		}
 
 		public static void Log(LogType type, string message)
@@ -111,28 +111,28 @@ namespace Neti.LogSystem
 
 		public static void Flush()
 		{
-			lock (_loggers)
+			lock (loggers)
 			{
-				while (_logDatas.TryDequeue(out var logData))
+				while (logDatas.TryDequeue(out var logData))
 				{
 					switch (logData.Type)
 					{
 						case LogType.Info:
-							foreach (var logger in _loggers)
+							foreach (var logger in loggers)
 							{
 								logger.LogInfo(logData.Message);
 							}
 							break;
 
 						case LogType.Warning:
-							foreach (var logger in _loggers)
+							foreach (var logger in loggers)
 							{
 								logger.LogWarning(logData.Message);
 							}
 							break;
 
 						case LogType.Error:
-							foreach (var logger in _loggers)
+							foreach (var logger in loggers)
 							{
 								logger.LogError(logData.Message);
 							}
@@ -144,9 +144,9 @@ namespace Neti.LogSystem
 		
 		public static void Clear()
 		{
-			lock (_loggers)
+			lock (loggers)
 			{
-				foreach (var logger in _loggers)
+				foreach (var logger in loggers)
 				{
 					logger.Clear();
 				}
@@ -174,13 +174,13 @@ namespace Neti.LogSystem
 			while (AutoFlush)
 			{
 				Flush();
-				if (_flushRateMilliSeconds <= 0)
+				if (flushRateMilliSeconds <= 0)
 				{
 					Thread.Yield();
 				}
 				else
 				{
-					Thread.Sleep(_flushRateMilliSeconds);
+					Thread.Sleep(flushRateMilliSeconds);
 				}
 			}
 		}

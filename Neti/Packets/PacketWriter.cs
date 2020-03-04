@@ -6,11 +6,11 @@ namespace Neti.Packets
 {
 	public struct PacketWriter : IDisposable
 	{
-		readonly StreamBuffer _streamBuffer;
+		readonly StreamBuffer streamBuffer;
 
-		int _writableSize;
+		int writableSize;
 
-		public byte[] Buffer => _streamBuffer.Buffer;
+		public byte[] Buffer => streamBuffer.Buffer;
 		public int Offset { get; }
 		public int Count => PacketSize + 2;
 		
@@ -18,12 +18,12 @@ namespace Neti.Packets
 
 		public PacketWriter(StreamBuffer buffer)
 		{
-			_streamBuffer = buffer ?? throw new ArgumentNullException(nameof(buffer));
+			streamBuffer = buffer ?? throw new ArgumentNullException(nameof(buffer));
 
-			Offset = _streamBuffer.WritePosition;
+			Offset = streamBuffer.WritePosition;
 			PacketSize = 0;
-			_streamBuffer.Write<short>(0);
-			_writableSize = Math.Min(_streamBuffer.WritableSize, ushort.MaxValue);
+			streamBuffer.Write<short>(0);
+			writableSize = Math.Min(streamBuffer.WritableSize, ushort.MaxValue);
 		}
 
 		public void Write<T>(in T value) where T : unmanaged
@@ -45,9 +45,12 @@ namespace Neti.Packets
 
 			WriteValue((ushort)count);
 
-			CheckWritable(count);
-			_streamBuffer.Write(bytes, offset, count);
-			_writableSize -= count;
+			if (count > 0)
+			{
+				CheckWritable(count);
+				streamBuffer.Write(bytes, offset, count);
+				writableSize -= count;
+			}
 		}
 
 		public void Write(string value)
@@ -57,7 +60,14 @@ namespace Neti.Packets
 				throw new ArgumentNullException(nameof(value));
 			}
 
-			Write(Encoding.UTF8.GetBytes(value));
+			if (value.Length > 0)
+			{
+				Write(Encoding.UTF8.GetBytes(value));
+			}
+			else
+			{
+				Write<ushort>(0);
+			}
 		}
 
 		unsafe void WriteValue<T>(in T value) where T : unmanaged
@@ -65,13 +75,13 @@ namespace Neti.Packets
 			var size = sizeof(T);
 			CheckWritable(size);
 
-			_streamBuffer.Write(in value);
-			_writableSize -= size;
+			streamBuffer.Write(in value);
+			writableSize -= size;
 		}
 
 		void CheckWritable(int size)
 		{
-			if (size > _writableSize)
+			if (size > writableSize)
 			{
 				throw new InvalidOperationException("Can't write.");
 			}
@@ -79,17 +89,17 @@ namespace Neti.Packets
 
 		public void Reset()
 		{
-			_streamBuffer.WritePosition = Offset + 2;
-			_writableSize = Math.Min(_streamBuffer.WritableSize, ushort.MaxValue);
+			streamBuffer.WritePosition = Offset + 2;
+			writableSize = Math.Min(streamBuffer.WritableSize, ushort.MaxValue);
 		}
 
 		public void Submit()
 		{
-			var currentWritePosition = _streamBuffer.WritePosition;
+			var currentWritePosition = streamBuffer.WritePosition;
 			PacketSize = currentWritePosition - Offset - 2;
-			_streamBuffer.WritePosition = Offset;
-			_streamBuffer.Write((ushort)PacketSize);
-			_streamBuffer.WritePosition = currentWritePosition;
+			streamBuffer.WritePosition = Offset;
+			streamBuffer.Write((ushort)PacketSize);
+			streamBuffer.WritePosition = currentWritePosition;
 		}
 
 		public void Dispose()

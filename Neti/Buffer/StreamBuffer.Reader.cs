@@ -4,12 +4,12 @@ namespace Neti.Buffer
 {
     partial class StreamBuffer
 	{
-        int _readPosition;
+        int readPosition;
 
 		public int ReadPosition
         {
-            get => _readPosition + Offset;
-            set => _readPosition = value - Offset;
+            get => readPosition + Offset;
+            set => readPosition = value - Offset;
         }
 
 		public int ReadableSize => WritePosition - ReadPosition;

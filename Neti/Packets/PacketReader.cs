@@ -6,25 +6,25 @@ namespace Neti.Packets
 {
 	public struct PacketReader
 	{
-		readonly StreamBuffer _streamBuffer;
-		int _readPosition;
+		readonly StreamBuffer streamBuffer;
+		int readPosition;
 
-		public byte[] Buffer => _streamBuffer.Buffer;
+		public byte[] Buffer => streamBuffer.Buffer;
 		public int Offset { get; }
 		public int Count { get; }
 		public bool IsUsed { get; private set; }
 
-		public int ReadPosition => Offset + _readPosition + 2;
+		public int ReadPosition => Offset + readPosition + 2;
 		public int PacketSize => Count - 2;
 
 
 		public PacketReader(StreamBuffer streamBuffer, int count)
 		{
-			_streamBuffer = streamBuffer ?? throw new ArgumentNullException(nameof(streamBuffer));
-			Offset = _streamBuffer.ProcessingPosition;
+			this.streamBuffer = streamBuffer ?? throw new ArgumentNullException(nameof(streamBuffer));
+			Offset = this.streamBuffer.ProcessingPosition;
 			Count = count;
-			_streamBuffer.ExternalProcess(count);
-			_readPosition = 0;
+			this.streamBuffer.ExternalProcess(count);
+			readPosition = 0;
 			IsUsed = false;
 		}
 
@@ -39,7 +39,7 @@ namespace Neti.Packets
 			CheckReadable(size);
 
 			var bytesSegment = new ArraySegment<byte>(Buffer, ReadPosition, size);
-			_readPosition += size;
+			readPosition += size;
 
 			return bytesSegment;
 		}
@@ -47,7 +47,14 @@ namespace Neti.Packets
 		public string ReadString()
 		{
 			var bytesSegment = ReadBytes();
-			return Encoding.UTF8.GetString(bytesSegment.Array, bytesSegment.Offset, bytesSegment.Count);
+			if (bytesSegment.Count > 0)
+			{
+				return Encoding.UTF8.GetString(bytesSegment.Array, bytesSegment.Offset, bytesSegment.Count);
+			}
+			else
+			{
+				return string.Empty;
+			}
 		}
 
 		public void Use()
@@ -58,7 +65,7 @@ namespace Neti.Packets
 			}
 
 			IsUsed = true;
-			_streamBuffer.ExternalRead(Count);
+			streamBuffer.ExternalRead(Count);
 		}
 
 		unsafe T ReadValue<T>() where T : unmanaged
@@ -68,15 +75,14 @@ namespace Neti.Packets
 
 			fixed (byte* pointer = &Buffer[ReadPosition])
 			{
-				_readPosition += size;
-
+				readPosition += size;
 				return *(T*)pointer;
 			}
 		}
 
 		void CheckReadable(int size)
 		{
-			if (_readPosition + size > PacketSize)
+			if (readPosition + size > PacketSize)
 			{
 				throw new InvalidOperationException("Can't read.");
 			}
@@ -84,7 +90,7 @@ namespace Neti.Packets
 
 		public void Reset()
 		{
-			_readPosition = 0;
+			readPosition = 0;
 		}
 	}
 }

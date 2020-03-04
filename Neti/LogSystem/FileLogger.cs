@@ -6,7 +6,7 @@ namespace Neti.LogSystem
 {
 	public sealed class FileLogger : ILogger, IDisposable
 	{
-		StreamWriter _streamWriter;
+		StreamWriter streamWriter;
 		public string OutputPath { get; }
 		public bool WriteTime { get; }
 
@@ -14,8 +14,8 @@ namespace Neti.LogSystem
 		{
 			OutputPath = outputPath ?? throw new ArgumentNullException(nameof(outputPath));
 			WriteTime = writeTime;
-			_streamWriter = new StreamWriter(outputPath, true, Encoding.UTF8);
-			_streamWriter.AutoFlush = true;
+			streamWriter = new StreamWriter(outputPath, true, Encoding.UTF8);
+			streamWriter.AutoFlush = true;
 		}
 
 		public void Clear()
@@ -41,7 +41,7 @@ namespace Neti.LogSystem
 		void Log(string message)
 		{
 			var finalMessage = WriteTime ? $"{DateTime.Now:HH:mm:ss} {message}" : message;
-			_streamWriter.WriteLine(finalMessage);
+			streamWriter.WriteLine(finalMessage);
 		}
 
 		public void Dispose()
@@ -57,8 +57,8 @@ namespace Neti.LogSystem
 
 		void Dispose(bool disposing)
 		{
-			_streamWriter?.Dispose();
-			_streamWriter = null;
+			streamWriter?.Dispose();
+			streamWriter = null;
 		}
 	}
 }

@@ -12,27 +12,27 @@ namespace Neti.Tests
 {
     class TcpClientTests
     {
-        const int _testPort = 41717;
+        const int testPort = 41717;
 
-        TcpListener _listener;
-        TcpClient _connectedClient;
+        TcpServer listener;
+        TcpClient connectedSession;
 
         [SetUp]
         public void Setup()
         {
-            _listener = new TcpListener();
-            _listener.NewClientEntered += client => _connectedClient = TcpClient.CreateFromSocket(client);
-            _listener.Start(_testPort);
+            listener = new TcpServer();
+            listener.SessionEntered += session => connectedSession = session;
+            listener.Start(testPort);
         }
 
         [TearDown]
         public void TearDown()
         {
-            _connectedClient?.Dispose();
-            _connectedClient = null;
-            _listener.Stop(); 
-            _listener.Dispose();
-            _listener = null;
+            connectedSession?.Dispose();
+            connectedSession = null;
+            listener.Stop(); 
+            listener.Dispose();
+            listener = null;
         }
 
         [Test]
@@ -40,7 +40,7 @@ namespace Neti.Tests
         {
             using (var client = new TcpClient())
             {
-                new Action(() => client.Connect(IPAddress.Any, _testPort)).Should().Throw<Exception>();
+                new Action(() => client.Connect(IPAddress.Any, testPort)).Should().Throw<Exception>();
             }
         }
 
@@ -54,11 +54,11 @@ namespace Neti.Tests
                 connectCheck.Should().BeFalse();
                 client.IsConnected.Should().BeFalse();
 
-                client.Connect(IPAddress.Loopback, _testPort);
+                client.Connect(IPAddress.Loopback, testPort);
 
                 connectCheck.Should().BeTrue();
                 client.IsConnected.Should().BeTrue();
-                new Action(() => client.Connect(IPAddress.Loopback, _testPort)).Should().Throw<InvalidOperationException>();
+                new Action(() => client.Connect(IPAddress.Loopback, testPort)).Should().Throw<InvalidOperationException>();
             }
         }
 
@@ -71,11 +71,11 @@ namespace Neti.Tests
                 client.Connected += () => connectCheck = true;
                 client.IsConnected.Should().BeFalse();
 
-                client.ConnectAsync(IPAddress.Loopback, _testPort);
+                client.ConnectAsync(IPAddress.Loopback, testPort);
 
                 Waiting.Until(() => connectCheck);
                 client.IsConnected.Should().BeTrue();
-                new Action(() => client.Connect(IPAddress.Loopback, _testPort)).Should().Throw<InvalidOperationException>();
+                new Action(() => client.Connect(IPAddress.Loopback, testPort)).Should().Throw<InvalidOperationException>();
             }
         }
 
@@ -87,14 +87,10 @@ namespace Neti.Tests
                 var bytes = new ArraySegment<byte>();
                 var sendData = new byte[] { 123 };
 
-                client.Connect(IPAddress.Loopback, _testPort);
+                client.Connect(IPAddress.Loopback, testPort);
 
-                Waiting.Until(() => _connectedClient != null);
-                _connectedClient.PacketReceived += (in PacketReader reader) =>
-                {
-                    bytes = reader.ReadBytes();
-                    reader.Use();
-                };
+                Waiting.Until(() => connectedSession != null);
+                connectedSession.PacketReceived += reader => bytes = reader.ReadBytes();
 
                 client.Send(sendData);
 
@@ -111,14 +107,10 @@ namespace Neti.Tests
                 ArraySegment<byte> bytes = null;
                 var sendData = new byte[] { 234 };
 
-                client.Connect(IPAddress.Loopback, _testPort);
+                client.Connect(IPAddress.Loopback, testPort);
 
-                Waiting.Until(() => _connectedClient != null);
-                _connectedClient.PacketReceived += (in PacketReader reader) =>
-                {
-                    bytes = reader.ReadBytes();
-                    reader.Use();
-                };
+                Waiting.Until(() => connectedSession != null);
+                connectedSession.PacketReceived += reader => bytes = reader.ReadBytes();
 
                 client.SendAsync(sendData);
 
@@ -135,7 +127,7 @@ namespace Neti.Tests
                 var disconnectCheck = false;
                 client.Disconnected += () => disconnectCheck = true;
 
-                client.Connect(IPAddress.Loopback, _testPort);
+                client.Connect(IPAddress.Loopback, testPort);
                 client.Disconnect();
 
                 disconnectCheck.Should().BeTrue();
@@ -153,7 +145,7 @@ namespace Neti.Tests
                 var disconnectCheck = false;
                 client.Disconnected += () => disconnectCheck = true;
 
-                client.Connect(IPAddress.Loopback, _testPort);
+                client.Connect(IPAddress.Loopback, testPort);
                 client.DisconnectAndClose();
 
                 disconnectCheck.Should().BeTrue();
@@ -171,7 +163,7 @@ namespace Neti.Tests
                 var disconnectCheck = false;
                 client.Disconnected += () => disconnectCheck = true;
 
-                client.Connect(IPAddress.Loopback, _testPort);
+                client.Connect(IPAddress.Loopback, testPort);
                 client.DisconnectAsync();
 
                 Waiting.Until(() => disconnectCheck);
@@ -189,7 +181,7 @@ namespace Neti.Tests
                 var disconnectCheck = false;
                 client.Disconnected += () => disconnectCheck = true;
                 
-                client.Connect(IPAddress.Loopback, _testPort);
+                client.Connect(IPAddress.Loopback, testPort);
                 client.DisconnectAndCloseAsync();
 
                 Task.Run(() => { while (disconnectCheck == false) Thread.Yield(); }).Wait();
@@ -208,7 +200,7 @@ namespace Neti.Tests
                 var disconnectCheck = false;
                 client.Disconnected += () => disconnectCheck = true;
 
-                client.Connect(IPAddress.Loopback, _testPort);
+                client.Connect(IPAddress.Loopback, testPort);
                 client.Close();
 
                 disconnectCheck.Should().BeTrue();
@@ -226,7 +218,7 @@ namespace Neti.Tests
                 var disconnectCheck = false;
                 client.Disconnected += () => disconnectCheck = true;
 
-                client.Connect(IPAddress.Loopback, _testPort);
+                client.Connect(IPAddress.Loopback, testPort);
                 client.Dispose();
 
                 disconnectCheck.Should().BeTrue();

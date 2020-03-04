@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading;
+using Neti.Echo.Server;
 using Neti.LogSystem;
 
 namespace Neti.Echo
@@ -25,10 +26,9 @@ namespace Neti.Echo
 				echoServer.Stopped += () => Logger.LogInfo("# Server Stopped.");
 				echoServer.SessionEntered += session =>
 				{
-					var clientId = $"{session.Address}:{session.Port}";
+					var clientId = $"{session.RemoteAddress}:{session.RemotePort}";
 					Logger.LogInfo($"# Client Entered. ({clientId})");
 
-					session.MessageReceived += msg => Logger.LogInfo($"{clientId} > {msg}");
 					session.Disconnected += () => Logger.LogInfo($"# Client Disconnected. ({clientId})");
 				};
 
@@ -44,7 +44,7 @@ namespace Neti.Echo
 			
 				while (echoServer.IsActive)
 				{
-					Thread.Yield();
+					Thread.Sleep(17);
 				}
 			}
 

@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Threading;
+using Neti.Echo.Client;
+using Neti.LogSystem;
 
 namespace Neti.Echo
 {
@@ -9,6 +11,9 @@ namespace Neti.Echo
 
 		static void Main(string[] args)
 		{
+			Logger.AddLogger(new ConsoleLogger());
+			Logger.EnableAutoFlush();
+			
 			if (Arguments.TryParse(args, out var arguments) == false)
 			{
 				Console.WriteLine("Invalid arguments.\nUsage: Neti.EchoClient {IP} {Port}");
@@ -20,11 +25,7 @@ namespace Neti.Echo
 			{
 				var serverId = $"{arguments.Ip}:{arguments.Port}";
 				echoClient.Connected += () => Console.WriteLine("# Connected! If you want to exit, type \"/exit\".");
-				echoClient.MessageReceived += msg =>
-				{
-					Console.WriteLine($"{serverId} > {msg}");
-					Interlocked.Exchange(ref receiveMessageCheck, 1);
-				};
+				echoClient.PacketReceived += _ => Interlocked.Exchange(ref receiveMessageCheck, 1); 
 				echoClient.Disconnected += () => Console.WriteLine("# Disconnected.");
 
 				Console.WriteLine($"# Connecting to {serverId}...");
@@ -47,10 +48,11 @@ namespace Neti.Echo
 						break;
 					}
 					Interlocked.Exchange(ref receiveMessageCheck, 0);
-					echoClient.SendMessage(msg);
+					Rpc.ClientToServer.RequestEcho(echoClient, msg);
+					echoClient.FlushPackets();
 					while (receiveMessageCheck == 0)
 					{
-						Thread.Yield();
+						Thread.Sleep(17);
 					}
 				}
 			}

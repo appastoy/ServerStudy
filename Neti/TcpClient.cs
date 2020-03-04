@@ -7,70 +7,53 @@ using Neti.Pool;
 
 namespace Neti
 {
-	public delegate void PacketAction(in PacketReader reader);
-	public delegate void BytesAction(in ArraySegment<byte> bytes);
-
 	public class TcpClient : IDisposable
 	{
-		public static TcpClient CreateFromSocket(Socket socket)
-		{
-			var newClient = new TcpClient();
-			newClient.OnAccepted(socket);
+		Action connected;
+		Action disconnected;
+		Action<PacketReader> packetReceived;
+		Action<ArraySegment<byte>> bytesSent;
 
-			return newClient;
-		}
+		StreamBuffer receiveBuffer;
+		StreamBuffer sendBuffer;
+		SocketAsyncEventArgs connectAsyncEventArgs;
+		SocketAsyncEventArgs disconnectAsyncEventArgs;
+		SocketAsyncEventArgs recvAsyncEventArgs;
+		GenericPool<SocketAsyncEventArgs> sendAsyncEventArgsPool;
+		bool disconnectRequested;
 
-		public static T CreateFromSocket<T>(Socket socket) where T : TcpClient, new()
-		{
-			var newClient = new T();
-			newClient.OnAccepted(socket);
+		public Socket Socket { get; protected set; }
 
-			return newClient;
-		}
+		public IPEndPoint RemoteEndPoint { get; protected set; }
+		public IPAddress RemoteAddress => RemoteEndPoint.Address;
+		public int RemotePort => RemoteEndPoint.Port;
+		public IPEndPoint LocalEndPoint => Socket?.LocalEndPoint as IPEndPoint;
 
-		Action _connected;
-		Action _disconnected;
-		PacketAction _packetReceived;
-		BytesAction _bytesSent;
-
-		StreamBuffer _receiveBuffer;
-		StreamBuffer _sendBuffer;
-		SocketAsyncEventArgs _connectAsyncEventArgs;
-		SocketAsyncEventArgs _disconnectAsyncEventArgs;
-		SocketAsyncEventArgs _recvAsyncEventArgs;
-		GenericPool<SocketAsyncEventArgs> _sendAsyncEventArgsPool;
-		bool _disconnectRequested;
-
-		public Socket Socket { get; private set; }
-
-		public IPEndPoint RemoteEndPoint { get; private set; }
-		public IPAddress Address => RemoteEndPoint.Address;
-		public int Port => RemoteEndPoint.Port;
-		public bool IsConnected { get; private set; }
+		public bool IsConnected { get; protected set; }
 		public bool IsDisposed { get; private set; }
 
 		public event Action Connected
 		{
-			add => _connected += value;
-			remove => _connected -= value;
+			add => connected += value;
+			remove => connected -= value;
 		}
 
 		public event Action Disconnected
 		{
-			add => _disconnected += value;
-			remove => _disconnected -= value;
+			add => disconnected += value;
+			remove => disconnected -= value;
 		}
 
-		public event PacketAction PacketReceived
+		public event Action<PacketReader> PacketReceived
 		{
-			add => _packetReceived += value;
-			remove => _packetReceived -= value;
+			add => packetReceived += value;
+			remove => packetReceived -= value;
 		}
 
-		public event BytesAction BytesSent
+		public event Action<ArraySegment<byte>> BytesSent
 		{
-			add => _bytesSent += value;
-			remove => _bytesSent -= value;
+			add => bytesSent += value;
+			remove => bytesSent -= value;
 		}
 
 		public TcpClient() : this(new StreamBuffer(), new StreamBuffer())
@@ -80,13 +63,13 @@ namespace Neti
 
 		public TcpClient(StreamBuffer receiveBuffer, StreamBuffer sendBuffer)
 		{
-			_receiveBuffer = receiveBuffer ?? throw new ArgumentNullException(nameof(receiveBuffer));
-			_sendBuffer = sendBuffer ?? throw new ArgumentNullException(nameof(sendBuffer));
+			this.receiveBuffer = receiveBuffer ?? throw new ArgumentNullException(nameof(receiveBuffer));
+			this.sendBuffer = sendBuffer ?? throw new ArgumentNullException(nameof(sendBuffer));
 		}
 
 		public void SetSendEventArgsPool(GenericPool<SocketAsyncEventArgs> pool)
 		{
-			_sendAsyncEventArgsPool = pool ?? throw new ArgumentNullException(nameof(pool));
+			sendAsyncEventArgsPool = pool ?? throw new ArgumentNullException(nameof(pool));
 		}
 
 		public void Connect(string ip, int port)
@@ -122,7 +105,7 @@ namespace Neti
 
 			Socket.Connect(RemoteEndPoint);
 			IsConnected = true;
-			_connected?.Invoke();
+			connected?.Invoke();
 			BeginRecevie();
 		}
 
@@ -157,15 +140,15 @@ namespace Neti
 			RemoteEndPoint = remoteEndPoint;
 			EnsureSocket();
 
-			if (_connectAsyncEventArgs == null)
+			if (connectAsyncEventArgs == null)
 			{
-				_connectAsyncEventArgs = new SocketAsyncEventArgs { RemoteEndPoint = RemoteEndPoint };
-				_connectAsyncEventArgs.Completed += OnConnect;
+				connectAsyncEventArgs = new SocketAsyncEventArgs { RemoteEndPoint = RemoteEndPoint };
+				connectAsyncEventArgs.Completed += OnConnect;
 			}
 
-			if (Socket.ConnectAsync(_connectAsyncEventArgs) == false)
+			if (Socket.ConnectAsync(connectAsyncEventArgs) == false)
 			{
-				OnConnect(this, _connectAsyncEventArgs);
+				OnConnect(this, connectAsyncEventArgs);
 			}
 		}
 
@@ -207,7 +190,7 @@ namespace Neti
 
 		public PacketWriter CreatePacketWriter()
 		{
-			return new PacketWriter(_sendBuffer);
+			return new PacketWriter(sendBuffer);
 		}
 
 		public int FlushPackets()
@@ -215,11 +198,11 @@ namespace Neti
 			CheckDisposed();
 
 			if (IsConnected &&
-				_sendBuffer.ProcessableSize > 0)
+				sendBuffer.ProcessableSize > 0)
 			{
-				var bytesCount = Socket.Send(_sendBuffer.Buffer, _sendBuffer.ProcessingPosition, _sendBuffer.ProcessableSize, SocketFlags.None);
-				_sendBuffer.ExternalProcess(_sendBuffer.ProcessableSize);
-				_sendBuffer.ExternalRead(bytesCount);
+				var bytesCount = Socket.Send(sendBuffer.Buffer, sendBuffer.ProcessingPosition, sendBuffer.ProcessableSize, SocketFlags.None);
+				sendBuffer.ExternalProcess(sendBuffer.ProcessableSize);
+				sendBuffer.ExternalRead(bytesCount);
 
 				return bytesCount;
 			}
@@ -232,22 +215,22 @@ namespace Neti
 			CheckDisposed();
 
 			if (IsConnected &&
-				_sendBuffer.ProcessableSize > 0)
+				sendBuffer.ProcessableSize > 0)
 			{
-				if (_sendAsyncEventArgsPool == null)
+				if (sendAsyncEventArgsPool == null)
 				{
-					_sendAsyncEventArgsPool = new GenericPool<SocketAsyncEventArgs>();
+					sendAsyncEventArgsPool = new GenericPool<SocketAsyncEventArgs>();
 				}
 
-				var (eventArgs, isCreated) = _sendAsyncEventArgsPool.AllocEx();
+				var (eventArgs, isCreated) = sendAsyncEventArgsPool.AllocEx();
 				if (isCreated)
 				{
 					eventArgs.Completed += OnSend;
 				}
 
-				eventArgs.SetBuffer(_sendBuffer.Buffer, _sendBuffer.ProcessingPosition, _sendBuffer.ProcessableSize);
-				_sendBuffer.ExternalProcess(_sendBuffer.ProcessableSize);
-				eventArgs.UserToken = _sendBuffer;
+				eventArgs.SetBuffer(sendBuffer.Buffer, sendBuffer.ProcessingPosition, sendBuffer.ProcessableSize);
+				sendBuffer.ExternalProcess(sendBuffer.ProcessableSize);
+				eventArgs.UserToken = sendBuffer;
 
 				if (Socket.SendAsync(eventArgs) == false)
 				{
@@ -287,24 +270,6 @@ namespace Neti
 			GC.SuppressFinalize(this);
 		}
 
-		protected virtual void OnAccepted(Socket socket)
-		{
-			if (socket == null)
-			{
-				throw new ArgumentNullException(nameof(socket));
-			}
-
-			if (socket.Connected == false)
-			{
-				throw new ArgumentException("socket is not connected.", nameof(socket));
-			}
-
-			Socket = socket;
-			RemoteEndPoint = Socket.RemoteEndPoint as IPEndPoint;
-			IsConnected = true;
-			BeginRecevie();
-		}
-
 		void EnsureSocket()
 		{
 			if (Socket == null)
@@ -340,7 +305,7 @@ namespace Neti
 			{
 				IsConnected = true;
 				OnConnected();
-				_connected?.Invoke();
+				connected?.Invoke();
 				BeginRecevie();
 			}
 		}
@@ -350,17 +315,17 @@ namespace Neti
 
 		}
 
-		void BeginRecevie()
+		protected void BeginRecevie()
 		{
-			if (_recvAsyncEventArgs == null)
+			if (recvAsyncEventArgs == null)
 			{
-				_recvAsyncEventArgs = new SocketAsyncEventArgs();
-				_recvAsyncEventArgs.Completed += OnReceive;
-				_recvAsyncEventArgs.UserToken = _receiveBuffer;
-				_recvAsyncEventArgs.SetBuffer(_receiveBuffer.Buffer, 0, _receiveBuffer.WritableSize);
+				recvAsyncEventArgs = new SocketAsyncEventArgs();
+				recvAsyncEventArgs.Completed += OnReceive;
+				recvAsyncEventArgs.UserToken = receiveBuffer;
+				recvAsyncEventArgs.SetBuffer(receiveBuffer.Buffer, 0, receiveBuffer.WritableSize);
 			}
 
-			ReceiveAsync(_recvAsyncEventArgs);
+			ReceiveAsync(recvAsyncEventArgs);
 		}
 
 		void ReceiveAsync(SocketAsyncEventArgs e)
@@ -391,16 +356,17 @@ namespace Neti
 					}
 
 					var packetReader = new PacketReader(streamBuffer, totalSize);
-					_packetReceived?.Invoke(in packetReader);
+					packetReceived?.Invoke(packetReader);
+					OnPacketReceived(packetReader);
 				}
 
 				e.SetBuffer(streamBuffer.WritePosition, streamBuffer.WritableSize);
 
 				ReceiveAsync(e);
 			}
-			else if (_disconnectRequested)
+			else if (disconnectRequested)
 			{
-				_disconnectRequested = false;
+				disconnectRequested = false;
 			}
 			else
 			{
@@ -408,26 +374,31 @@ namespace Neti
 			}
 		}
 
+		protected virtual void OnPacketReceived(PacketReader reader) 
+		{
+			reader.Use();
+		}
+
 		static void OnSend(object sender, SocketAsyncEventArgs e)
 		{
 			var client = sender as TcpClient ?? throw new InvalidOperationException("sender is not a TcpClient.");
 			if (e.SocketError == SocketError.Success)
 			{
-				client._bytesSent?.Invoke(new ArraySegment<byte>(e.Buffer, e.Offset, e.BytesTransferred));
+				client.bytesSent?.Invoke(new ArraySegment<byte>(e.Buffer, e.Offset, e.BytesTransferred));
 			}
 			
 			var buffer = (StreamBuffer)e.UserToken;
 			buffer.ExternalRead(e.BytesTransferred);
 			e.UserToken = null;
 			e.SetBuffer(null, 0, 0);
-			client._sendAsyncEventArgsPool.Free(e);
+			client.sendAsyncEventArgsPool.Free(e);
 		}
 
 		void Disconnect(bool reuseSocket)
 		{
 			if (IsConnected)
 			{
-				_disconnectRequested = true;
+				disconnectRequested = true;
 				try
 				{
 					Socket.Shutdown(SocketShutdown.Both);
@@ -440,7 +411,7 @@ namespace Neti
 				if (reuseSocket)
 				{
 					IsConnected = false;
-					_disconnected?.Invoke();
+					disconnected?.Invoke();
 				}
 				else
 				{
@@ -453,14 +424,14 @@ namespace Neti
 		{
 			if (IsConnected)
 			{
-				if (_disconnectAsyncEventArgs == null)
+				if (disconnectAsyncEventArgs == null)
 				{
-					_disconnectAsyncEventArgs = new SocketAsyncEventArgs();
-					_disconnectAsyncEventArgs.Completed += OnDisconnect;
+					disconnectAsyncEventArgs = new SocketAsyncEventArgs();
+					disconnectAsyncEventArgs.Completed += OnDisconnect;
 				}
-				_disconnectAsyncEventArgs.DisconnectReuseSocket = reuseSocket;
+				disconnectAsyncEventArgs.DisconnectReuseSocket = reuseSocket;
 
-				_disconnectRequested = true;
+				disconnectRequested = true;
 
 				try
 				{
@@ -470,7 +441,7 @@ namespace Neti
 				{
 
 				}
-				Socket.DisconnectAsync(_disconnectAsyncEventArgs);
+				Socket.DisconnectAsync(disconnectAsyncEventArgs);
 			}
 		}
 
@@ -482,7 +453,7 @@ namespace Neti
 				{
 					IsConnected = false;
 					OnDisconnected();
-					_disconnected?.Invoke();
+					disconnected?.Invoke();
 				}
 				else
 				{
@@ -502,16 +473,16 @@ namespace Neti
 			{
 				IsDisposed = true;
 
-				_receiveBuffer = null;
-				_sendBuffer = null;
-				_recvAsyncEventArgs?.Dispose();
-				_recvAsyncEventArgs = null;
-				_connectAsyncEventArgs?.Dispose();
-				_connectAsyncEventArgs = null;
-				_disconnectAsyncEventArgs?.Dispose();
-				_disconnectAsyncEventArgs = null;
-				_disconnectRequested = false;
-				_connected = null;
+				receiveBuffer = null;
+				sendBuffer = null;
+				recvAsyncEventArgs?.Dispose();
+				recvAsyncEventArgs = null;
+				connectAsyncEventArgs?.Dispose();
+				connectAsyncEventArgs = null;
+				disconnectAsyncEventArgs?.Dispose();
+				disconnectAsyncEventArgs = null;
+				disconnectRequested = false;
+				connected = null;
 
 				Socket?.Close();
 				Socket = null;
@@ -521,10 +492,10 @@ namespace Neti
 				{
 					IsConnected = false;
 					OnDisconnected();
-					_disconnected?.Invoke();
+					disconnected?.Invoke();
 				}
 
-				_disconnected = null;
+				disconnected = null;
 			}
 		}
 

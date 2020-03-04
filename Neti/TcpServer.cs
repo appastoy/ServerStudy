@@ -4,33 +4,36 @@ using System.Net.Sockets;
 
 namespace Neti
 {
-    public class TcpListener : IDisposable
+    public class TcpServer : IDisposable
     {
-        Action _started;
-        Action _stopped;
-        Action<Socket> _clientEntered;
-        SocketAsyncEventArgs _acceptAsyncEventArgs;
+        Action started;
+        Action stopped;
+        Action<TcpClient> sessionEntered;
+        SocketAsyncEventArgs acceptAsyncEventArgs;
+        SessionIdGenerator sessionIdGenerator = new SessionIdGenerator();
+
+        public SessionCollection Sessions { get; private set; } = new SessionCollection();
 
         public IPEndPoint LocalEndPoint { get; private set; }
         public Socket Socket { get; private set; }
         public bool IsActive => Socket != null;
 
-        public event Action<Socket> NewClientEntered
+        public event Action<TcpClient> SessionEntered
         {
-            add => _clientEntered += value;
-            remove => _clientEntered -= value;
+            add => sessionEntered += value;
+            remove => sessionEntered -= value;
         }
 
         public event Action Started
         {
-            add => _started += value;
-            remove => _started -= value;
+            add => started += value;
+            remove => started -= value;
         }
 
         public event Action Stopped
         {
-            add => _stopped += value;
-            remove => _stopped -= value;
+            add => stopped += value;
+            remove => stopped -= value;
         }
 
         public void Start() => Start(new IPEndPoint(IPAddress.Any, 0));
@@ -83,7 +86,7 @@ namespace Neti
                 AcceptAsync();
 
                 OnStarted();
-                _started?.Invoke();
+                started?.Invoke();
             }
             catch (Exception)
             {
@@ -102,9 +105,10 @@ namespace Neti
         {
             if (IsActive)
             {
+                Sessions.Clear();
                 Socket.Close();
                 Socket = null;
-                _stopped?.Invoke();
+                stopped?.Invoke();
                 OnStopped();
             }
         }
@@ -122,10 +126,10 @@ namespace Neti
 
         void EnsureAcceptEventArgs()
         {
-            if (_acceptAsyncEventArgs == null)
+            if (acceptAsyncEventArgs == null)
             {
-                _acceptAsyncEventArgs = new SocketAsyncEventArgs();
-                _acceptAsyncEventArgs.Completed += OnAccept;
+                acceptAsyncEventArgs = new SocketAsyncEventArgs();
+                acceptAsyncEventArgs.Completed += OnAccept;
             }
         }
 
@@ -143,9 +147,9 @@ namespace Neti
 
         void AcceptAsync()
         {
-            if (Socket.AcceptAsync(_acceptAsyncEventArgs) == false)
+            if (Socket.AcceptAsync(acceptAsyncEventArgs) == false)
             {
-                OnAccept(this, _acceptAsyncEventArgs);
+                OnAccept(this, acceptAsyncEventArgs);
             }
         }
 
@@ -153,10 +157,13 @@ namespace Neti
         {
             if (e.SocketError == SocketError.Success)
             {
-                var newClientSocket = e.AcceptSocket;
+                var socket = e.AcceptSocket;
                 e.AcceptSocket = null;
-                OnClientEntered(newClientSocket);
-                _clientEntered?.Invoke(newClientSocket);
+
+                var newSessionId = sessionIdGenerator.Generate();
+                var newSession = CreateSession(socket, newSessionId);
+                Sessions.Add(newSession);
+                sessionEntered?.Invoke(newSession);
 
                 AcceptAsync();
             }
@@ -166,24 +173,27 @@ namespace Neti
             }
         }
 
-        protected virtual void OnClientEntered(Socket newClientSocket)
+        protected virtual TcpSession CreateSession(Socket socket, int id)
         {
-
+            return new TcpSession(this, socket, id);
         }
 
         protected virtual void Dispose(bool _)
         {
-            _clientEntered = null;
-            _started = null;
+            sessionEntered = null;
+            started = null;
 
             Stop();
 
-            _acceptAsyncEventArgs?.Dispose();
-            _acceptAsyncEventArgs = null;
-            _stopped = null;
+            acceptAsyncEventArgs?.Dispose();
+            acceptAsyncEventArgs = null;
+            stopped = null;
+            Sessions?.Clear();
+            Sessions = null;
+            sessionIdGenerator = null;
         }
 
-        ~TcpListener()
+        ~TcpServer()
         {
             Dispose(false);
         }

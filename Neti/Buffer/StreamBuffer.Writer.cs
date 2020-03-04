@@ -4,12 +4,12 @@ namespace Neti.Buffer
 {
     partial class StreamBuffer
 	{
-        int _writePosition;
+        int writePosition;
 
         public int WritePosition
         {
-            get => _writePosition + Offset;
-            set => _writePosition = value - Offset;
+            get => writePosition + Offset;
+            set => writePosition = value - Offset;
         }
 
         public int WritableSize => Capacity - WritePosition;
@@ -58,8 +58,8 @@ namespace Neti.Buffer
             fixed (T* source = &value)
             fixed (byte* destination = &Buffer[WritePosition])
             {
-                System.Buffer.MemoryCopy(source, destination, WritableSize, size);
                 WritePosition += size;
+                System.Buffer.MemoryCopy(source, destination, WritableSize, size);
             }
         }
 
