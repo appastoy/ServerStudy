@@ -1,14 +1,14 @@
 ﻿namespace Neti.Echo
 {
-	public static partial class Rpc
+	public static partial class ClientToServer
 	{
-		public static class ClientToServer
+		public static class Rpc
 		{
 			public static void RequestEcho(TcpClient sender, string message)
 			{
 				using (var writer = sender.CreatePacketWriter())
 				{
-					writer.Write(Definition.ClientToServer.MessageId.RequestEcho);
+					writer.Write(MessageId.RequestEcho);
 					writer.Write(message);
 				}
 			}

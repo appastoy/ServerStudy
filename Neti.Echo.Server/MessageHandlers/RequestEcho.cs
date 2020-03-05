@@ -7,7 +7,7 @@ namespace Neti.Echo.Server.MessageHandlers
 		protected override void RequestEcho(TcpSession session, string message)
 		{
 			Logger.LogInfo($"{session.RemoteAddress}:{session.RemotePort} > {message}");
-			Rpc.ServerToClient.ResponseEcho(session, message);
+			ServerToClient.Rpc.ResponseEcho(session, message);
 			session.FlushPacketsAsync();
 		}
 	}

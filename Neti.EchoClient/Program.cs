@@ -48,7 +48,7 @@ namespace Neti.Echo
 						break;
 					}
 					Interlocked.Exchange(ref receiveMessageCheck, 0);
-					Rpc.ClientToServer.RequestEcho(echoClient, msg);
+					ClientToServer.Rpc.RequestEcho(echoClient, msg);
 					echoClient.FlushPackets();
 					while (receiveMessageCheck == 0)
 					{

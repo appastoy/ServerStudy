@@ -30,7 +30,7 @@ namespace Neti.Tests
                         reader.Read<ushort>();
                         receiveMessage = reader.ReadString();
                     };
-                    Rpc.ClientToServer.RequestEcho(client, sendMessage);
+                    ClientToServer.Rpc.RequestEcho(client, sendMessage);
                     client.FlushPackets();
 
                     Waiting.Until(() => receiveMessage != null);

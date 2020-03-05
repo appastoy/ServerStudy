@@ -1,4 +1,4 @@
-﻿namespace Neti.Echo.Definition
+﻿namespace Neti.Echo
 {
 	public static partial class ServerToClient
 	{

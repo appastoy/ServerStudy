@@ -1,7 +1,7 @@
 ﻿
 namespace Neti.Echo.Client.MessageHandlers
 {
-	partial class ServerToClientMessageHandler : MessageHandling.ServerToClient
+	partial class ServerToClientMessageHandler : ServerToClient.MessageHandling
 	{
 	}
 }

@@ -1,11 +1,10 @@
 ﻿using Neti.Packets;
-using Neti.Protocols;
 
 namespace Neti.Echo
 {
-	public static partial class MessageHandling
+	public static partial class ServerToClient
 	{
-		public abstract class ServerToClient
+		public abstract class MessageHandling
 		{
 			public void Handle(TcpClient sender, PacketReader reader)
 			{
@@ -16,9 +15,9 @@ namespace Neti.Echo
 					var protocolId = reader.Read<ushort>();
 					switch (protocolId)
 					{
-						case Definition.ServerToClient.MessageId.ResponseEcho: HandleResponseEcho(sender, in reader); break;
+						case MessageId.ResponseEcho: HandleResponseEcho(sender, in reader); break;
 
-						default: throw new UnknownProtocolException(protocolId);
+						default: throw new UnknownMessageException(protocolId);
 					}
 				}
 				finally
