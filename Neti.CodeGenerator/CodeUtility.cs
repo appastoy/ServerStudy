@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace Neti.CodeGenerator
@@ -33,7 +34,7 @@ namespace {namespaceName}
 			{internalClassCode}
 		}}
 	}}
-}}";
+}}".TrimEmptyLine();
 
 			return code;
 		}
@@ -50,6 +51,16 @@ namespace {namespaceName}
 			var finaleCode = string.Join(Environment.NewLine, usingCodes);
 
 			return finaleCode;
+		}
+
+		public static string GenerateParameterTypeNameCode(ParameterInfo[] parameters)
+		{
+			return parameters.Select(param => $", {TypeUtility.GetFriendlyTypeName(param.ParameterType)} {param.Name}").Join();
+		}
+
+		public static string GenerateParameterNameCode(ParameterInfo[] parameters)
+		{
+			return parameters.Select(param => $", {param.Name}").Join();
 		}
 	}
 }

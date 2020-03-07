@@ -6,6 +6,12 @@ namespace Neti.Echo
 	{
 		public abstract class MessageHandling
 		{
+			public delegate void RequestEchoHandler(TcpSession sender, string message);
+
+			RequestEchoHandler onRequestEcho;
+
+			public event RequestEchoHandler OnRequestEcho { add { onRequestEcho += value; } remove { onRequestEcho -= value; } }
+
 			public void Handle(TcpSession session, PacketReader reader)
 			{
 				try
@@ -26,14 +32,15 @@ namespace Neti.Echo
 				}
 			}
 
-			protected abstract void RequestEcho(TcpSession session, string message);
-
 			void HandleRequestEcho(TcpSession sender, in PacketReader reader)
 			{
 				var message = reader.ReadString();
 
 				RequestEcho(sender, message);
+				onRequestEcho?.Invoke(sender, message);
 			}
+
+			protected abstract void RequestEcho(TcpSession session, string message);
 		}
 	}
 }

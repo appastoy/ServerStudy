@@ -10,51 +10,39 @@ namespace Neti.CodeGenerator.Generators
 		public string Generate(Type type)
 		{
 			var messageGroup = TypeUtility.GetMessageGroupAttribute(type);
-			string clientTypeName = TypeUtility.GetRpcClientTypeName(messageGroup);
+			string senderTypeName = TypeUtility.GetRpcSenderTypeName(messageGroup);
 
-			return GenerateRpcCode(type, type.GetMethods(), clientTypeName);
+			return GenerateRpcCode(type, type.GetMethods(), senderTypeName);
 		}
 
-		string GenerateRpcCode(Type messageGroupType, IEnumerable<MethodInfo> rpcMethods, string clientTypeName)
+		string GenerateRpcCode(Type messageGroupType, IEnumerable<MethodInfo> rpcMethods, string senderTypeName)
 		{
-			var rpcMethodCodes = rpcMethods.Select(method => GenerateRpcMethodCode(method, clientTypeName));
-			var rpcCode = string.Join($"{Environment.NewLine}{Environment.NewLine}", rpcMethodCodes);
-			var indentedRpcCode = rpcCode.Replace(Environment.NewLine, $"{Environment.NewLine}{CodeConstants.MessageCodeIndent}");
-
-			var paramTypes = rpcMethods.SelectMany(method => method.GetParameters().Select(param => param.ParameterType))
-									   .Distinct();
-			var usingCode = TypeUtility.GetUnfriendlyTypeUsingCode(paramTypes, messageGroupType.Namespace);
+			var usingCode = TypeUtility.GetUnfriendlyParameterTypeUsingCode(rpcMethods, messageGroupType.Namespace);
+			var rpcCode = rpcMethods.Select(method => GenerateRpcMethodCode(method, senderTypeName))
+									.Join($"{Environment.NewLine}{Environment.NewLine}")
+									.InsertAfterEachLine(CodeConstants.InternalClassCodeIndent);
 
 			return CodeUtility.BuildMessageGroupCode(usingCode,
 													 messageGroupType.Namespace,
 													 messageGroupType.Name,
-													"Rpc",
-													indentedRpcCode);
+													 "Rpc",
+													 rpcCode);
 		}
 
-		string GenerateRpcMethodCode(MethodInfo method, string clientTypeName)
+		string GenerateRpcMethodCode(MethodInfo method, string senderTypeName)
 		{
 			var parameters = method.GetParameters();
-			var parameterCode = GenerateParameterCode(parameters);
-			var writeCodes = parameters.Select(param => $"writer.Write({param.Name});");
-			var writeCode = string.Join($"{Environment.NewLine}		", writeCodes);
+			var parameterCode = CodeUtility.GenerateParameterTypeNameCode(parameters);
+			var writeCode = parameters.Select(param => $"{Environment.NewLine}		writer.Write({param.Name});").Join();
 	
 			return
-$@"public void {method.Name}({clientTypeName} sender, {parameterCode})
+$@"public void {method.Name}({senderTypeName} sender{parameterCode})
 {{
 	using (var writer = sender.CreatePacketWriter())
 	{{
-		writer.Write(MessageId.{method.Name});
-		{writeCode}
+		writer.Write(MessageId.{method.Name});{writeCode}
 	}}
 }}";
-		}
-
-		string GenerateParameterCode(ParameterInfo[] parameters)
-		{
-			var paramCodes = parameters.Select(param => $"{TypeUtility.GetFriendlyTypeName(param.ParameterType)} {param.Name}");
-			
-			return string.Join(", ", paramCodes);
 		}
 	}
 }

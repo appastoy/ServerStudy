@@ -19,7 +19,7 @@ namespace Neti.CodeGenerator.Generators
 		string GenerateMessageIdCode(Type messageGroupType, (string Name, ushort Value)[] messageIds)
 		{
 			var messageIdDeclaringCodes = messageIds.Select(id => $"public const ushort {id.Name} = {id.Value};");
-			var messageIdCode = string.Join($"{Environment.NewLine}{CodeConstants.MessageCodeIndent}", messageIdDeclaringCodes);
+			var messageIdCode = string.Join($"{Environment.NewLine}{CodeConstants.InternalClassCodeIndent}", messageIdDeclaringCodes);
 
 			return CodeUtility.BuildMessageGroupCode(string.Empty,
 													 messageGroupType.Namespace,

@@ -26,8 +26,8 @@ namespace Neti.CodeGenerator
 			{ typeof(decimal), "decimal" },
 		};
 
-		static readonly string sessionTypeName = "TcpSession";
-		static readonly string clientTypeName = "TcpClient";
+		const string sessionTypeName = "TcpSession";
+		const string senderTypeName = "TcpClient";
 
 		public static string GetFriendlyTypeName(Type type)
 		{
@@ -46,22 +46,22 @@ namespace Neti.CodeGenerator
 			return friendlyTypeNameMap.ContainsKey(type);
 		}
 
-		public static string GetRpcClientTypeName(MessageGroupAttribute messageGroup)
+		public static string GetRpcSenderTypeName(MessageGroupAttribute messageGroup)
 		{
 			switch (messageGroup)
 			{
-				case MessageGroupToServerAttribute _: return clientTypeName;
+				case MessageGroupToServerAttribute _: return senderTypeName;
 				case MessageGroupToClientAttribute _: return sessionTypeName;
 				default: throw new ArgumentException(nameof(messageGroup));
 			}
 		}
 
-		public static string GetHandlerClientTypeName(MessageGroupAttribute messageGroup)
+		public static string GetHandlerSenderTypeName(MessageGroupAttribute messageGroup)
 		{
 			switch (messageGroup)
 			{
-				case MessageGroupToServerAttribute _: return clientTypeName;
-				case MessageGroupToClientAttribute _: return sessionTypeName;
+				case MessageGroupToServerAttribute _: return sessionTypeName;
+				case MessageGroupToClientAttribute _: return senderTypeName;
 				default: throw new ArgumentException(nameof(messageGroup));
 			}
 		}
@@ -82,6 +82,14 @@ namespace Neti.CodeGenerator
 			return attribute;
 		}
 
+		public static string GetUnfriendlyParameterTypeUsingCode(IEnumerable<MethodInfo> methods, string exceptNamespace = null)
+		{
+			var paramTypes = methods.SelectMany(method => method.GetParameters().Select(param => param.ParameterType))
+									.Distinct();
+
+			return GetUnfriendlyTypeUsingCode(paramTypes, exceptNamespace);
+		}
+
 		public static string GetUnfriendlyTypeUsingCode(IEnumerable<Type> types, string execptNamespace = null)
 		{
 			if (types is null)
@@ -96,6 +104,21 @@ namespace Neti.CodeGenerator
 									   .Select(namespaceName => $"using {namespaceName};");
 
 			return string.Join(Environment.NewLine, usingNamespaces);
+		}
+
+		public static string GetPacketReaderReadMethodPostfix(Type parameterType)
+		{
+			if (parameterType == typeof(string))
+			{
+				return "String";
+			}
+
+			if (IsFriendlyType(parameterType))
+			{
+				return $"<{GetFriendlyTypeName(parameterType)}>";
+			}
+
+			throw new ArgumentException("not readable parameter type.", nameof(parameterType));
 		}
 	}
 }
