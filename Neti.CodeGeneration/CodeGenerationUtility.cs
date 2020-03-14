@@ -1,18 +1,12 @@
 ﻿using System;
 using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 
-namespace Neti.CodeGenerator
+namespace Neti.CodeGeneration
 {
-	public static class CodeUtility
+	public static class CodeGenerationUtility
 	{
 		public static readonly string MessageGroupIndent = "			";
-
-		public static Task<string> GenerateAsync(this ICodeGenerator self, Type type)
-		{
-			return Task.Run(() => self.Generate(type));
-		}
 
 		public static string BuildMessageGroupCode(string usingCode,
 												   string namespaceName,

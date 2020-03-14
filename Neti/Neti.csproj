@@ -5,16 +5,12 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="FluentValidation" Version="8.6.1" />
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.8">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath></OutputPath>
+  </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Protocols\" />
+    <PackageReference Update="NETStandard.Library" Version="2.0.3" />
   </ItemGroup>
 
 </Project>

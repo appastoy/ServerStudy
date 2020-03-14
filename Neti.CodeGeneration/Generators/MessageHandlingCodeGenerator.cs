@@ -1,18 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 
-namespace Neti.CodeGenerator.Generators
+namespace Neti.CodeGeneration.Generators
 {
 	public class MessageHandlingCodeGenerator : ICodeGenerator
 	{
-		public string Generate(Type type)
+		const string localPathPostFix = ".MessageHandling.g.cs";
+
+		public CodeGenerationResult Generate(Type type)
 		{
 			var messageGroup = TypeUtility.GetMessageGroupAttribute(type);
 			string senderTypeName = TypeUtility.GetHandlerSenderTypeName(messageGroup);
 
-			return GenerateCompositedCode(type, senderTypeName, type.GetMethods());
+			var localPath = $"{type.Name}{localPathPostFix}";
+			var code = GenerateCompositedCode(type, senderTypeName, type.GetMethods());
+
+			return new CodeGenerationResult(localPath, code);
 		}
 
 		string GenerateCompositedCode(Type type, string senderTypeName, IEnumerable<MethodInfo> methods)
@@ -20,7 +26,7 @@ namespace Neti.CodeGenerator.Generators
 			var usingCode = TypeUtility.GetUnfriendlyParameterTypeUsingCode(methods, type.Namespace);
 			var messageHandlingCode = GenerateMessageHandlingCode(senderTypeName, methods);
 
-			return CodeUtility.BuildMessageGroupCode(usingCode,
+			return CodeGenerationUtility.BuildMessageGroupCode(usingCode,
 													 type.Namespace,
 													 type.Name,
 													 "MessageHandling",
@@ -50,7 +56,7 @@ $@"{handlerDefinitionCode}
 		{
 			var delegateCode = methods.Select(method =>
 			{
-				var paramCode = CodeUtility.GenerateParameterTypeNameCode(method.GetParameters());
+				var paramCode = CodeGenerationUtility.GenerateParameterTypeNameCode(method.GetParameters());
 
 				return $"public delegate void {method.Name}Handler({senderTypeName} sender{paramCode});";
 			})
@@ -109,7 +115,7 @@ $@"public void Handle({senderTypeName} sender, PacketReader reader)
 				})
 				.Join($"{Environment.NewLine}	");
 
-				var paramNamesCode = CodeUtility.GenerateParameterNameCode(parameters);
+				var paramNamesCode = CodeGenerationUtility.GenerateParameterNameCode(parameters);
 
 				var code =
 $@"void Handle{method.Name}({senderTypeName} sender, PacketReader reader)
@@ -131,7 +137,7 @@ $@"void Handle{method.Name}({senderTypeName} sender, PacketReader reader)
 		{
 			var code = methods.Select(method =>
 			{
-				var paramTypeNamesCode = CodeUtility.GenerateParameterTypeNameCode(method.GetParameters());
+				var paramTypeNamesCode = CodeGenerationUtility.GenerateParameterTypeNameCode(method.GetParameters());
 
 				return $@"protected abstract void Handle_{method.Name}({senderTypeName} sender{paramTypeNamesCode});";
 			})

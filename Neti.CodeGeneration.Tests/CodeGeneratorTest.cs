@@ -1,6 +1,6 @@
 using FluentAssertions;
-using Neti.CodeGenerator.Generators;
-using Neti.Scheme;
+using Neti.CodeGeneration.Generators;
+using Neti.Schema;
 using NUnit.Framework;
 
 namespace Neti.Mock
@@ -15,7 +15,7 @@ namespace Neti.Mock
 	}
 }
 
-namespace Neti.CodeGenerator.Tests
+namespace Neti.CodeGeneration.Tests
 {
 	public class CodeGeneratorTest
 	{
@@ -42,8 +42,7 @@ namespace Neti.Mock
 }}";
 
 			var generator = new MessageIdCodeGenerator();
-			generator.Generate(typeof(Mock.MockMessageGroup)).Should().Be(expectedMessageIdCode);
-			generator.GenerateAsync(typeof(Mock.MockMessageGroup)).Result.Should().Be(expectedMessageIdCode);
+			generator.Generate(typeof(Mock.MockMessageGroup)).Code.Should().Be(expectedMessageIdCode);
 		}
 
 		[Test]
@@ -110,8 +109,7 @@ namespace Neti.Mock
 }}";
 
 			var generator = new RpcCodeGenerator();
-			generator.Generate(typeof(Mock.MockMessageGroup)).Should().Be(expectedRpcCode);
-			generator.GenerateAsync(typeof(Mock.MockMessageGroup)).Result.Should().Be(expectedRpcCode);
+			generator.Generate(typeof(Mock.MockMessageGroup)).Code.Should().Be(expectedRpcCode);
 		}
 
 		[Test]
@@ -217,8 +215,7 @@ namespace Neti.Mock
 }}";
 
 			var generator = new MessageHandlingCodeGenerator();
-			generator.Generate(typeof(Mock.MockMessageGroup)).Should().Be(expectedMessageHandlingCode);
-			generator.GenerateAsync(typeof(Mock.MockMessageGroup)).Result.Should().Be(expectedMessageHandlingCode);
+			generator.Generate(typeof(Mock.MockMessageGroup)).Code.Should().Be(expectedMessageHandlingCode);
 		}
 	}
 }

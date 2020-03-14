@@ -1,4 +1,4 @@
-﻿using Neti.Scheme;
+﻿using Neti.Schema;
 
 namespace Neti.Echo
 {

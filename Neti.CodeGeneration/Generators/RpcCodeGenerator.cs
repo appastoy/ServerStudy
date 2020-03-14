@@ -1,18 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 
-namespace Neti.CodeGenerator.Generators
+namespace Neti.CodeGeneration.Generators
 {
 	public class RpcCodeGenerator : ICodeGenerator
 	{
-		public string Generate(Type type)
+		const string localPathPostfix = ".Rpc.g.cs";
+
+		public CodeGenerationResult Generate(Type type)
 		{
 			var messageGroup = TypeUtility.GetMessageGroupAttribute(type);
 			string senderTypeName = TypeUtility.GetRpcSenderTypeName(messageGroup);
 
-			return GenerateRpcCode(type, type.GetMethods(), senderTypeName);
+			var localPath = $"{type.Name}{localPathPostfix}";
+			var code = GenerateRpcCode(type, type.GetMethods(), senderTypeName);
+
+			return new CodeGenerationResult(localPath, code);
 		}
 
 		string GenerateRpcCode(Type messageGroupType, IEnumerable<MethodInfo> rpcMethods, string senderTypeName)
@@ -22,7 +28,7 @@ namespace Neti.CodeGenerator.Generators
 									.Join($"{Environment.NewLine}{Environment.NewLine}")
 									.InsertAfterEachLine(CodeConstants.InternalClassCodeIndent);
 
-			return CodeUtility.BuildMessageGroupCode(usingCode,
+			return CodeGenerationUtility.BuildMessageGroupCode(usingCode,
 													 messageGroupType.Namespace,
 													 messageGroupType.Name,
 													 "Rpc",
@@ -32,7 +38,7 @@ namespace Neti.CodeGenerator.Generators
 		string GenerateRpcMethodCode(MethodInfo method, string senderTypeName)
 		{
 			var parameters = method.GetParameters();
-			var parameterCode = CodeUtility.GenerateParameterTypeNameCode(parameters);
+			var parameterCode = CodeGenerationUtility.GenerateParameterTypeNameCode(parameters);
 			var writeCode = parameters.Select(param => $"{Environment.NewLine}		writer.Write({param.Name});").Join();
 	
 			return

@@ -1,11 +1,14 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
 
-namespace Neti.CodeGenerator.Generators
+namespace Neti.CodeGeneration.Generators
 {
 	public class MessageIdCodeGenerator : ICodeGenerator
 	{
-		public string Generate(Type type)
+		const string localPathPostfix = ".MessageId.g.cs";
+
+		public CodeGenerationResult Generate(Type type)
 		{
 			var messageGroup = TypeUtility.GetMessageGroupAttribute(type);
 			var startId = messageGroup.StartId;
@@ -13,7 +16,10 @@ namespace Neti.CodeGenerator.Generators
 								 .Select(method => (method.Name, Value: startId++))
 								 .ToArray();
 
-			return GenerateMessageIdCode(type, messageIds);
+			var localPath = $"{type.Name}{localPathPostfix}";
+			var code = GenerateMessageIdCode(type, messageIds);
+
+			return new CodeGenerationResult(localPath, code);
 		}
 
 		string GenerateMessageIdCode(Type messageGroupType, (string Name, ushort Value)[] messageIds)
@@ -21,7 +27,7 @@ namespace Neti.CodeGenerator.Generators
 			var messageIdDeclaringCodes = messageIds.Select(id => $"public const ushort {id.Name} = {id.Value};");
 			var messageIdCode = string.Join($"{Environment.NewLine}{CodeConstants.InternalClassCodeIndent}", messageIdDeclaringCodes);
 
-			return CodeUtility.BuildMessageGroupCode(string.Empty,
+			return CodeGenerationUtility.BuildMessageGroupCode(string.Empty,
 													 messageGroupType.Namespace,
 													 messageGroupType.Name,
 													 "MessageId",

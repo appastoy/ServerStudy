@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Neti.Scheme;
+using Neti.Schema;
 
-namespace Neti.CodeGenerator
+namespace Neti.CodeGeneration
 {
 	static class TypeUtility
 	{

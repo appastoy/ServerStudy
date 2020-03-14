@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Neti.Scheme
+namespace Neti.Schema
 {
 	[AttributeUsage(AttributeTargets.Interface, AllowMultiple = false, Inherited = true)]
 	public abstract class MessageGroupAttribute : Attribute

@@ -14,9 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Neti.EchoClient\Neti.EchoClient.csproj" />
-    <ProjectReference Include="..\Neti.EchoServer\Neti.EchoServer.csproj" />
-    <ProjectReference Include="..\Neti\Neti.csproj" />
+    <ProjectReference Include="..\Neti.CodeCompilation\Neti.CodeCompilation.csproj" />
   </ItemGroup>
 
 </Project>

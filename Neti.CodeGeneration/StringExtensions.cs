@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
-namespace Neti.CodeGenerator
+namespace Neti.CodeGeneration
 {
     public static class StringExtensions
     {
@@ -31,6 +31,11 @@ namespace Neti.CodeGenerator
         public static string TrimEmptyLine(this string text)
         {
             return emptyLineRegex.Replace(text, Environment.NewLine);
+        }
+
+        public static string ResolvePathSeperator(this string text)
+        {
+            return text.Replace('/', '\\');
         }
     }
 }

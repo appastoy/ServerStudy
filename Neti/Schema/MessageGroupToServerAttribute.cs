@@ -1,4 +1,4 @@
-﻿namespace Neti.Scheme
+﻿namespace Neti.Schema
 {
 	public class MessageGroupToServerAttribute : MessageGroupAttribute
 	{

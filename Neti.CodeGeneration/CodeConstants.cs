@@ -1,4 +1,4 @@
-﻿namespace Neti.CodeGenerator
+﻿namespace Neti.CodeGeneration
 {
 	public static class CodeConstants
 	{
