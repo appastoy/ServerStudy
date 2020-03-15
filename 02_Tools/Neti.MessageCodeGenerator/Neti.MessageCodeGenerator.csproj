@@ -6,7 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Neti\Neti.csproj" />
+    <ProjectReference Include="..\..\01_Libraries\Neti.CodeCompilation\Neti.CodeCompilation.csproj" />
+    <ProjectReference Include="..\..\01_Libraries\Neti.CodeGeneration\Neti.CodeGeneration.csproj" />
   </ItemGroup>
 
 </Project>

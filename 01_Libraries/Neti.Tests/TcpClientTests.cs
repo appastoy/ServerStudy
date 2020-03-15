@@ -8,7 +8,7 @@ using Neti.Buffer;
 using Neti.Packets;
 using NUnit.Framework;
 
-namespace Neti.Tests
+namespace Neti.Echo
 {
     class TcpClientTests
     {

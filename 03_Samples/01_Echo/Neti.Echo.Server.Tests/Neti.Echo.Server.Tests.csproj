@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
@@ -14,9 +14,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Neti.EchoClient\Neti.EchoClient.csproj" />
-    <ProjectReference Include="..\Neti.EchoServer\Neti.EchoServer.csproj" />
-    <ProjectReference Include="..\Neti\Neti.csproj" />
+    <ProjectReference Include="..\..\..\01_Libraries\Neti\Neti.csproj" />
+    <ProjectReference Include="..\Neti.Echo.Client\Neti.Echo.Client.csproj" />
+    <ProjectReference Include="..\Neti.Echo.Server\Neti.Echo.Server.csproj" />
+    <ProjectReference Include="..\Neti.Echo\Neti.Echo.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 
@@ -15,7 +14,7 @@ namespace Neti.CodeGeneration.Generators
 			var messageGroup = TypeUtility.GetMessageGroupAttribute(type);
 			string senderTypeName = TypeUtility.GetRpcSenderTypeName(messageGroup);
 
-			var localPath = $"{type.Name}{localPathPostfix}";
+			var localPath = $"{type.Name.TrimStart('I')}{localPathPostfix}";
 			var code = GenerateRpcCode(type, type.GetMethods(), senderTypeName);
 
 			return new CodeGenerationResult(localPath, code);
@@ -29,10 +28,10 @@ namespace Neti.CodeGeneration.Generators
 									.InsertAfterEachLine(CodeConstants.InternalClassCodeIndent);
 
 			return CodeGenerationUtility.BuildMessageGroupCode(usingCode,
-													 messageGroupType.Namespace,
-													 messageGroupType.Name,
-													 "Rpc",
-													 rpcCode);
+															   messageGroupType.Namespace,
+															   messageGroupType.Name.TrimStart('I'),
+															   "Rpc",
+															   rpcCode);
 		}
 
 		string GenerateRpcMethodCode(MethodInfo method, string senderTypeName)

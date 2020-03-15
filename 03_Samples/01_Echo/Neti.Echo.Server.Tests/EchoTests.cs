@@ -6,7 +6,7 @@ using Neti.Echo.Server;
 using Neti.Packets;
 using NUnit.Framework;
 
-namespace Neti.Tests
+namespace Neti.Echo.Tests
 {
 	class EchoTests
 	{

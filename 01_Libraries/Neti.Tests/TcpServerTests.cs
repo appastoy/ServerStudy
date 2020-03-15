@@ -2,7 +2,7 @@ using FluentAssertions;
 using NUnit.Framework;
 using System;
 
-namespace Neti.Tests
+namespace Neti.Echo
 {
     public class TcpServerTests
     {

@@ -8,7 +8,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Neti.Echo.Server\Neti.Echo.Server.csproj" />
-    <ProjectReference Include="..\Neti\Neti.csproj" />
   </ItemGroup>
 
 </Project>

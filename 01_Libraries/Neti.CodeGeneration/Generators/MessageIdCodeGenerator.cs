@@ -16,7 +16,7 @@ namespace Neti.CodeGeneration.Generators
 								 .Select(method => (method.Name, Value: startId++))
 								 .ToArray();
 
-			var localPath = $"{type.Name}{localPathPostfix}";
+			var localPath = $"{type.Name.TrimStart('I')}{localPathPostfix}";
 			var code = GenerateMessageIdCode(type, messageIds);
 
 			return new CodeGenerationResult(localPath, code);
@@ -28,10 +28,10 @@ namespace Neti.CodeGeneration.Generators
 			var messageIdCode = string.Join($"{Environment.NewLine}{CodeConstants.InternalClassCodeIndent}", messageIdDeclaringCodes);
 
 			return CodeGenerationUtility.BuildMessageGroupCode(string.Empty,
-													 messageGroupType.Namespace,
-													 messageGroupType.Name,
-													 "MessageId",
-													 messageIdCode);
+															   messageGroupType.Namespace,
+															   messageGroupType.Name.TrimStart('I'),
+															   "MessageId",
+															   messageIdCode);
 		}
 	}
 }

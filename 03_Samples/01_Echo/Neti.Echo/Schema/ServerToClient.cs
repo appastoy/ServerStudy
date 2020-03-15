@@ -3,7 +3,7 @@
 namespace Neti.Echo
 {
 	[MessageGroupToClient(200)]
-	public interface ServerToClient
+	public interface IServerToClient
 	{
 		void ResponseEcho(string message);
 	}

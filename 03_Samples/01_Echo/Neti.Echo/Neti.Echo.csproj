@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Neti.Echo.Protocol\Neti.Echo.csproj" />
+    <ProjectReference Include="..\..\..\01_Libraries\Neti\Neti.csproj" />
   </ItemGroup>
 
 </Project>

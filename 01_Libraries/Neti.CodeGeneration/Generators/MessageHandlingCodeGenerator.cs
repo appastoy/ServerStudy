@@ -15,22 +15,22 @@ namespace Neti.CodeGeneration.Generators
 			var messageGroup = TypeUtility.GetMessageGroupAttribute(type);
 			string senderTypeName = TypeUtility.GetHandlerSenderTypeName(messageGroup);
 
-			var localPath = $"{type.Name}{localPathPostFix}";
+			var localPath = $"{type.Name.TrimStart('I')}{localPathPostFix}";
 			var code = GenerateCompositedCode(type, senderTypeName, type.GetMethods());
 
 			return new CodeGenerationResult(localPath, code);
 		}
 
-		string GenerateCompositedCode(Type type, string senderTypeName, IEnumerable<MethodInfo> methods)
+		string GenerateCompositedCode(Type messageGroupType, string senderTypeName, IEnumerable<MethodInfo> methods)
 		{
-			var usingCode = TypeUtility.GetUnfriendlyParameterTypeUsingCode(methods, type.Namespace);
+			var usingCode = TypeUtility.GetUnfriendlyParameterTypeUsingCode(methods, messageGroupType.Namespace);
 			var messageHandlingCode = GenerateMessageHandlingCode(senderTypeName, methods);
 
 			return CodeGenerationUtility.BuildMessageGroupCode(usingCode,
-													 type.Namespace,
-													 type.Name,
-													 "MessageHandling",
-													 messageHandlingCode);
+															   messageGroupType.Namespace,
+															   messageGroupType.Name.TrimStart('I'),
+															   "MessageHandling",
+															   messageHandlingCode);
 		}
 
 		string GenerateMessageHandlingCode(string senderTypeName, IEnumerable<MethodInfo> methods)

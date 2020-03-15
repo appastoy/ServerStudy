@@ -2,9 +2,9 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Neti.Tests
+namespace Neti.Echo
 {
-	static class Waiting
+	public static class Waiting
 	{
 		public static void Until(Func<bool> func)
 		{

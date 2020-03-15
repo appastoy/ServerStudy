@@ -14,8 +14,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Neti.CodeCompilation\Neti.CodeCompilation.csproj" />
-    <ProjectReference Include="..\Neti.CodeGeneration\Neti.CodeGeneration.csproj" />
     <ProjectReference Include="..\Neti\Neti.csproj" />
   </ItemGroup>
 

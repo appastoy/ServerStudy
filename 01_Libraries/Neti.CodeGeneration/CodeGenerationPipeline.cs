@@ -12,7 +12,7 @@ namespace Neti.CodeGeneration
 {
 	public static class CodeGenerationPipeline
 	{
-		public static void Run(Assembly assembly, string outputDirectory, IEnumerable<ICodeGenerationContextBuilder> builders)
+		public static void Run(Assembly assembly, string outputDirectory, IEnumerable<ICodeGenerationContextBuilder> builders, Encoding encoding = null)
 		{
 			if (outputDirectory is null)
 			{
@@ -21,7 +21,7 @@ namespace Neti.CodeGeneration
 
 			var codeGenerationContexts = builders.SelectMany(builder => builder.BuildContexts(assembly)).ToArray();
 			var codeResults = Generate(codeGenerationContexts);
-			UpdateAndRemoveUnusedCode(outputDirectory, codeResults);
+			UpdateAndRemoveUnusedCode(outputDirectory, codeResults, encoding ?? Encoding.Default);
 		}
 
 		public static CodeGenerationResult[] Generate(IReadOnlyList<CodeGenerationContext> codeGenerationContexts)
@@ -44,9 +44,9 @@ namespace Neti.CodeGeneration
 			return output.ToArray();
 		}
 
-		static void UpdateAndRemoveUnusedCode(string outputDirectory, IReadOnlyList<CodeGenerationResult> codeResults)
+		static void UpdateAndRemoveUnusedCode(string outputDirectory, IReadOnlyList<CodeGenerationResult> codeResults, Encoding encoding)
 		{
-			var fileContentMap = CreateFileContentMap(outputDirectory);
+			var fileContentMap = CreateFileContentMap(outputDirectory, encoding);
 			var needExportCodes = codeResults.Where(codeResult => fileContentMap.TryGetValue(codeResult.LocalPath, out var content) == false || codeResult.Code != content);
 			var needDeleteFiles = fileContentMap.Keys.Except(needExportCodes.Select(codeResult => codeResult.LocalPath)).ToList();
 
@@ -54,7 +54,7 @@ namespace Neti.CodeGeneration
 			var exportCodeTasks = needExportCodes.Select(codeResult =>
 			{
 				var filePath = Path.Combine(outputDirectory, codeResult.LocalPath);
-				return FileUtility.WriteAllTextAsync(filePath, codeResult.Code);
+				return FileUtility.WriteAllTextAsync(filePath, codeResult.Code, encoding);
 			})
 				.ToArray();
 			Task.WaitAll(exportCodeTasks);
@@ -67,10 +67,10 @@ namespace Neti.CodeGeneration
 			});
 		}
 
-		static Dictionary<string, string> CreateFileContentMap(string outputDirectory)
+		static Dictionary<string, string> CreateFileContentMap(string outputDirectory, Encoding encoding)
 		{
 			var filePathes = Directory.GetFiles(outputDirectory);
-			var fileLoadTasks = filePathes.Select(FileUtility.ReadAllTextAsync).ToArray();
+			var fileLoadTasks = filePathes.Select(path => FileUtility.ReadAllTextAsync(path, encoding)).ToArray();
 			Task.WaitAll(fileLoadTasks);
 
 			var fileContentMap = new Dictionary<string, string>(filePathes.Length);
