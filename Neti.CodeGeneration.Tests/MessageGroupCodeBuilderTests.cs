@@ -1,6 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using FluentAssertions;
 using Neti.CodeCompilation;
 using Neti.CodeGeneration.Builders;
@@ -245,11 +243,13 @@ namespace Neti.CodeGeneration.Tests.Schema
 			};
 
 			var compiler = new CSharpCompiler();
-			var assembly = compiler.CompileFromDirectory("Scheme.dll", "..\\..\\..\\Schema", new[] { typeof(TcpSession).Assembly });
-			assembly.Should().NotBeNull();
+			var result = compiler.CompileFromDirectory("..\\..\\..\\Schema", 
+													   assemblyName: "Scheme.dll",
+													   references: new[] { typeof(TcpSession).Assembly });
+			result.Success.Should().BeTrue();
 
 			var builder = new MessageGroupCodeBuilder();
-			var generationContexts = builder.BuildContexts(assembly);
+			var generationContexts = builder.BuildContexts(result.Assembly);
 			var codeResults = CodeGenerationPipeline.Generate(generationContexts);
 			foreach (var codeResult in codeResults)
 			{

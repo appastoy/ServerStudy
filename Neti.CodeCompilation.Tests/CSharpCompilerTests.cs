@@ -14,7 +14,7 @@ namespace Neti.CodeCompilation.Tests
 			var invalidCode = "This is not valid C# code.";
 
 			var compiler = new CSharpCompiler();
-			new Action(() => compiler.CompileCode(invalidCode)).Should().Throw<CompileFailedException>();
+			compiler.CompileCode(invalidCode).Success.Should().BeFalse();
 		}
 
 		[Test]
@@ -35,10 +35,12 @@ namespace Test
 }";
 
 			var compiler = new CSharpCompiler();
-			var assembly = compiler.CompileCode(validCode);
-			assembly.Should().NotBeNull();
-			var programClass = assembly.GetTypes().FirstOrDefault(type => type.Name == "Program");
+			var result = compiler.CompileCode(validCode);
+			result.Success.Should().BeTrue();
+
+			var programClass = result.Assembly.GetTypes().FirstOrDefault(type => type.Name == "Program");
 			programClass.Should().NotBeNull();
+
 			var plusMethod = programClass.GetMethod("Plus", BindingFlags.Public | BindingFlags.Static);
 			plusMethod.Should().NotBeNull();
 			plusMethod.Invoke(null, new object[] { 1, 2 }).As<int>().Should().Be(3);

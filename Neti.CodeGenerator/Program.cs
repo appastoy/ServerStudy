@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Neti.CodeGeneration
+﻿namespace Neti.CodeGeneration
 {
 	class Program
 	{
