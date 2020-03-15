@@ -6,33 +6,25 @@ namespace Neti.IO
 {
 	public static class FileUtility
 	{
-		public static async Task WriteAllTextAsync(string path, string content)
+		public static async Task WriteAllTextAsync(string path, string content, Encoding encoding = null)
 		{
-			await WriteAllTextAsync(path, content, Encoding.Default);
-		}
-
-		public static async Task WriteAllTextAsync(string path, string content, Encoding encoding)
-		{
+			var validEncoding = encoding ?? Encoding.Default;
 			using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, 4096, true))
 			{
-				var bytes = encoding.GetBytes(content);
+				var bytes = validEncoding.GetBytes(content);
 				await stream.WriteAsync(bytes, 0, bytes.Length);
 			}
 		}
 
-		public static async Task<string> ReadAllTextAsync(string path)
+		public static async Task<string> ReadAllTextAsync(string path, Encoding encoding = null)
 		{
-			return await ReadAllTextAsync(path, Encoding.Default);
-		}
-
-		public static async Task<string> ReadAllTextAsync(string path, Encoding encoding)
-		{
+			var validEncoding = encoding ?? Encoding.Default;
 			using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 4096, true))
 			{
 				var bytes = new byte[stream.Length];
 				await stream.ReadAsync(bytes, 0, bytes.Length);
 
-				return encoding.GetString(bytes);
+				return validEncoding.GetString(bytes);
 			}
 		}
 	}
