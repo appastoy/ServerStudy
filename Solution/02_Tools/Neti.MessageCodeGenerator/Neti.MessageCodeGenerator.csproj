@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <RunPostBuildEvent>OnOutputUpdated</RunPostBuildEvent>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\01_Libraries\Neti.CodeCompilation\Neti.CodeCompilation.csproj" />
+    <ProjectReference Include="..\..\01_Libraries\Neti.CodeGeneration\Neti.CodeGeneration.csproj" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="set TOOLS_OUTPUT=$(SolutionDir)..\Binaries\$(ConfigurationName)\Tools\MessageCodeGenerator\&#xD;&#xA;if not exist %25TOOLS_OUTPUT%25 mkdir %25TOOLS_OUTPUT%25&#xD;&#xA;(robocopy $(TargetDir) %25TOOLS_OUTPUT%25 *.* /MIR /NDL /NS /NP /NJH /NJS) ^&amp; if %25errorlevel%25 leq 1 exit /b 0" />
+  </Target>
+
+</Project>

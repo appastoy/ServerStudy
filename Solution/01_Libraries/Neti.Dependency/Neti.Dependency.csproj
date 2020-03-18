@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RunPostBuildEvent>OnOutputUpdated</RunPostBuildEvent>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="16.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Neti.CodeCompilation\Neti.CodeCompilation.csproj" />
+    <ProjectReference Include="..\Neti.CodeGeneration\Neti.CodeGeneration.csproj" />
+    <ProjectReference Include="..\Neti\Neti.csproj" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="set BINARY_OUTPUT=$(SolutionDir)..\Binaries\$(ConfigurationName)\&#xD;&#xA;&#xD;&#xA;if not exist %25BINARY_OUTPUT%25 mkdir %25BINARY_OUTPUT%25&#xD;&#xA;(robocopy %25BINARY_OUTPUT%25 $(TargetDir) *.* /XF $(TargetName).* /MIR /NS /NDL /NP /NJH /NJS) ^&amp; IF %25ERRORLEVEL%25 LEQ 1 exit /b 0" />
+  </Target>
+
+</Project>

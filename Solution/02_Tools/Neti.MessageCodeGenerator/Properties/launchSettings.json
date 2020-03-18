@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Neti.MessageCodeGenerator": {
+      "commandName": "Project",
+      "commandLineArgs": "..\\..\\..\\..\\..\\03_Samples\\01_Echo\\Neti.Echo\\Schema ..\\..\\..\\..\\..\\03_Samples\\01_Echo\\Neti.Echo"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\01_Libraries\Neti\Neti.csproj" />
+  </ItemGroup>
+
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+    <Exec Command="$(SolutionDir)..\Binaries\$(ConfigurationName)\Tools\MessageCodeGenerator\Neti.MessageCodeGenerator.exe &quot;$(ProjectDir)Schema&quot; ." />
+  </Target>
+
+</Project>
